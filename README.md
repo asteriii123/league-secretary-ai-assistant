@@ -1,6 +1,7 @@
 # 团支书 AI 助手
 
 这是团支书端和学生端的基础框架，并加入了第一版 DeepSeek 测试功能。
+点击查看：https://league-secretary-ai-web.onrender.com/
 
 ## 当前包含
 
