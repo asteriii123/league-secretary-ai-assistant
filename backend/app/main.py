@@ -1,3 +1,4 @@
+import os
 from typing import Literal
 
 from fastapi import FastAPI, Query
@@ -10,9 +11,14 @@ app = FastAPI(
     version="0.1.0",
 )
 
+allowed_origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
+frontend_origin = os.getenv("FRONTEND_ORIGIN", "").strip().rstrip("/")
+if frontend_origin:
+    allowed_origins.append(frontend_origin)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

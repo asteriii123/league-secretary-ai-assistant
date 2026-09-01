@@ -89,3 +89,18 @@ pytest
 - 飞书：机器人通知
 
 数据库和各项 AI 技术会在实际开发对应功能时再确定和接入，不提前增加复杂架构。
+
+## Render 在线部署
+
+仓库根目录的 `render.yaml` 会创建两个服务：
+
+- `league-secretary-ai-web`：Vue 静态网站。
+- `league-secretary-ai-api`：FastAPI 后端服务。
+
+在 Render 控制台选择 **New → Blueprint**，连接本仓库并应用 Blueprint。部署完成后打开：
+
+```text
+https://league-secretary-ai-web.onrender.com
+```
+
+如果 Render 提示服务名称已被占用，需要同步修改 `render.yaml` 中的服务名称、`FRONTEND_ORIGIN` 和 `VITE_API_BASE_URL`，然后重新部署。
