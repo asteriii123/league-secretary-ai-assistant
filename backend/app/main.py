@@ -4,6 +4,8 @@ from typing import Literal
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.ai import router as ai_router
+
 
 app = FastAPI(
     title="团支书 AI 助手 API",
@@ -23,6 +25,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(ai_router)
 
 
 @app.get("/", tags=["基础"])

@@ -13,7 +13,7 @@ const connected = ref(false)
 const modules = [
   { title: '通知管理', description: '发布和查看本班团务通知', icon: Bell, tone: 'coral' },
   { title: '信息收集', description: '创建个人信息和材料收集任务', icon: Document, tone: 'blue' },
-  { title: '会议助手', description: '未来上传音视频并整理会议纪要', icon: Microphone, tone: 'green' },
+  { title: '会议助手', description: '粘贴会议文字稿并使用 DeepSeek 整理纪要', icon: Microphone, tone: 'green', route: '/secretary/meeting-summary' },
   { title: '知识资料', description: '未来管理本地团务知识文件', icon: FolderOpened, tone: 'purple' },
 ]
 
@@ -63,11 +63,11 @@ async function checkBackend() {
         <span class="coming-badge">页面占位</span>
       </div>
       <div class="module-grid">
-        <article v-for="item in modules" :key="item.title" class="module-card">
+        <component :is="item.route ? 'RouterLink' : 'article'" v-for="item in modules" :key="item.title" :to="item.route" :class="['module-card', { 'module-card-link': item.route }]">
           <span :class="['module-icon', item.tone]"><component :is="item.icon" /></span>
           <h3>{{ item.title }}</h3><p>{{ item.description }}</p>
-          <span class="module-status">后续开发</span>
-        </article>
+          <span class="module-status">{{ item.route ? '现在体验 →' : '后续开发' }}</span>
+        </component>
       </div>
     </section>
   </AppShell>

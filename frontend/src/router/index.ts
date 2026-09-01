@@ -3,6 +3,8 @@ import LoginView from '@/views/LoginView.vue'
 import SecretaryDashboardView from '@/views/SecretaryDashboardView.vue'
 import StudentDashboardView from '@/views/StudentDashboardView.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
+import StudentQaView from '@/views/StudentQaView.vue'
+import MeetingSummaryView from '@/views/MeetingSummaryView.vue'
 import { useAuthStore, type UserRole } from '@/stores/auth'
 
 const router = createRouter({
@@ -20,6 +22,18 @@ const router = createRouter({
       name: 'student-dashboard',
       component: StudentDashboardView,
       meta: { role: 'student' },
+    },
+    {
+      path: '/student/ai-qa',
+      name: 'student-ai-qa',
+      component: StudentQaView,
+      meta: { role: 'student' },
+    },
+    {
+      path: '/secretary/meeting-summary',
+      name: 'meeting-summary',
+      component: MeetingSummaryView,
+      meta: { role: 'secretary' },
     },
     { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFoundView },
   ],

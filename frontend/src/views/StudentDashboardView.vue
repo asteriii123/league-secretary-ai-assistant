@@ -14,7 +14,7 @@ const modules = [
   { title: '本班通知', description: '查看团支书发布的最新通知', icon: Bell, tone: 'coral' },
   { title: '待提交任务', description: '查看个人信息和材料收集任务', icon: Document, tone: 'blue' },
   { title: '文件提交', description: '未来上传表格、申请书和证明材料', icon: UploadFilled, tone: 'green' },
-  { title: 'AI 答疑', description: '未来查询入团入党政策和材料要求', icon: ChatDotRound, tone: 'purple' },
+  { title: 'AI 答疑', description: '使用 DeepSeek 测试团务常见问题问答', icon: ChatDotRound, tone: 'purple', route: '/student/ai-qa' },
 ]
 
 async function checkBackend() {
@@ -63,11 +63,11 @@ async function checkBackend() {
         <span class="coming-badge">页面占位</span>
       </div>
       <div class="module-grid">
-        <article v-for="item in modules" :key="item.title" class="module-card">
+        <component :is="item.route ? 'RouterLink' : 'article'" v-for="item in modules" :key="item.title" :to="item.route" :class="['module-card', { 'module-card-link': item.route }]">
           <span :class="['module-icon', item.tone]"><component :is="item.icon" /></span>
           <h3>{{ item.title }}</h3><p>{{ item.description }}</p>
-          <span class="module-status">后续开发</span>
-        </article>
+          <span class="module-status">{{ item.route ? '现在体验 →' : '后续开发' }}</span>
+        </component>
       </div>
     </section>
   </AppShell>
