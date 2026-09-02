@@ -10,7 +10,7 @@
 - 本地目录保存附件、会议文件和知识资料。
 - Chroma保存知识小块向量，BM25提供全文检索。
 - DeepSeek API用于聊天和会议总结。
-- 本地 `BAAI/bge-small-zh-v1.5` 用于Embedding，团务资料不发送第三方；魔搭Token仅预留给Rerank。
+- 本地 `BAAI/bge-small-zh-v1.5` 用于Embedding，本地 `BAAI/bge-reranker-base` 用于Cross-Encoder重排，团务资料不发送第三方。
 - faster-whisper用于本地音视频转写。
 
 DeepSeek和魔搭仍需联网，其Token只保存在本地 `.env`，不得提交GitHub。
@@ -75,7 +75,7 @@ Office转PDF → Docling/OCR解析 → 父子分块 → 本地BGE Embedding
 - 小块只用于召回，最终传给DeepSeek的是父块。
 - 保留班级、文件名、章节、页码、内容哈希和索引版本。
 
-检索规则：Chroma和BM25分别召回top-50，以RRF `k=60`融合为top-20，再通过 `BAAI/bge-reranker-v2-m3` 重排，默认选择top-3并回溯父块。无可靠资料时必须提示“知识库依据不足”，不得伪造引用。
+检索规则：Chroma和BM25分别召回top-50，以RRF `k=60`融合为top-20，再通过本地 `BAAI/bge-reranker-base` 重排，默认选择top-3并回溯父块。无可靠资料时必须提示“知识库依据不足”，不得伪造引用。
 
 ## 5. RAGAS测评
 

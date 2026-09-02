@@ -2,7 +2,7 @@
 
 这是只在当前Windows电脑运行的团务协作平台。项目仅有团支书端和学生端，不设置管理员端。
 
-第二阶段采用逐阶段开发。当前已完成本地SQLite账号基础、两端ChatGPT式流式聊天、通知管理、信息收集、会议助手、知识资料解析分块和混合召回。Rerank与引用回答将在后续阶段开发。
+第二阶段采用逐阶段开发。当前已完成本地SQLite账号基础、两端ChatGPT式流式聊天、通知管理、信息收集、会议助手、知识资料解析分块、混合召回、本地Rerank和引用回答。
 
 完整方案见 [docs/团支书AI助手第二阶段本地开发方案.md](docs/团支书AI助手第二阶段本地开发方案.md)。
 
@@ -80,7 +80,7 @@ winget install --id UB-Mannheim.TesseractOCR --source winget
 - 向量保存在 `backend/data/chroma`，Jieba分词后的BM25索引保存在 `backend/data/indexes`。
 - 查询时Chroma与BM25各召回top-50，以RRF `k=60`融合、去重并保留top-20。
 - 所有结果按当前班级和资料启用状态过滤；停用或删除资料会同步更新两路索引。
-- 知识资料页面提供调试框，可分别查看向量、BM25和RRF排名。本阶段只返回候选小块，不做Rerank或AI回答。
+- 知识资料页面提供调试框，可查看向量、BM25、RRF、Rerank和最终父块。
 
 本地Embedding配置：
 
@@ -93,7 +93,7 @@ LOCAL_MODEL_CACHE_DIR=./data/models
 
 ## 第八阶段Rerank与引用回答
 
-- RRF融合后的top-20小块调用魔搭 `BAAI/bge-reranker-v2-m3` 重新排序，默认保留top-3。
+- RRF融合后的top-20小块由本机 `BAAI/bge-reranker-base` Cross-Encoder重新排序，默认保留top-3，资料不会发送第三方。
 - 系统根据小块的 `parent_id` 回溯SQLite中的父块，同一父块只发送给DeepSeek一次。
 - DeepSeek回答会使用 `[资料1]` 格式引用；前端同时显示文件名、章节和页码。
 - 确定性政策问题只能依据本班已启用资料。没有足够资料时必须说明“知识库依据不足”，通用建议会与资料结论分开。
@@ -102,7 +102,10 @@ LOCAL_MODEL_CACHE_DIR=./data/models
 使用前还需确认 `backend/.env` 包含：
 
 ```text
-MODELSCOPE_RERANK_MODEL=BAAI/bge-reranker-v2-m3
+RERANK_PROVIDER=local
+RERANK_MODEL=BAAI/bge-reranker-base
+RERANK_DEVICE=cpu
+RERANK_BATCH_SIZE=4
 RAG_FINAL_TOP_K=3
 RAG_ENABLED=true
 ```
@@ -174,7 +177,6 @@ Copy-Item .env.example .env
 ```text
 JWT_SECRET=换成一段仅自己知道的随机长文本
 DEEPSEEK_API_KEY=你的DeepSeek密钥
-MODELSCOPE_API_TOKEN=你的魔搭访问令牌（当前仅预留给Rerank）
 ```
 
 真实密钥不能提交GitHub。`backend/.env`已加入Git忽略。

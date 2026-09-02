@@ -26,7 +26,10 @@ class Settings:
     embedding_device: str = os.getenv("EMBEDDING_DEVICE", "cpu")
     embedding_batch_size: int = int(os.getenv("EMBEDDING_BATCH_SIZE", os.getenv("MODELSCOPE_EMBEDDING_BATCH_SIZE", "16")))
     embedding_retries: int = int(os.getenv("EMBEDDING_RETRIES", os.getenv("MODELSCOPE_EMBEDDING_RETRIES", "3")))
-    rerank_model: str = os.getenv("MODELSCOPE_RERANK_MODEL", "BAAI/bge-reranker-v2-m3")
+    rerank_provider: str = os.getenv("RERANK_PROVIDER", "local").strip().lower()
+    rerank_model: str = os.getenv("RERANK_MODEL", os.getenv("MODELSCOPE_RERANK_MODEL", "BAAI/bge-reranker-base"))
+    rerank_device: str = os.getenv("RERANK_DEVICE", "cpu")
+    rerank_batch_size: int = int(os.getenv("RERANK_BATCH_SIZE", "4"))
     rag_enabled: bool = os.getenv("RAG_ENABLED", "true").lower() == "true"
     whisper_enabled: bool = os.getenv("WHISPER_ENABLED", "true").lower() == "true"
     whisper_model: str = os.getenv("WHISPER_MODEL", "small")

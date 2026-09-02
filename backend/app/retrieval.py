@@ -117,6 +117,39 @@ class ModelScopeRerankClient:
         raise RetrievalError("魔搭Rerank调用失败，请检查Token、模型名和网络") from last_error
 
 
+class LocalRerankClient:
+    _model = None
+
+    def rerank(self, query: str, documents: list[str]) -> list[dict]:
+        try:
+            if LocalRerankClient._model is None:
+                from sentence_transformers import CrossEncoder
+                LocalRerankClient._model = CrossEncoder(
+                    settings.rerank_model,
+                    device=settings.rerank_device,
+                    cache_folder=str(settings.models_dir),
+                )
+            scores = LocalRerankClient._model.predict(
+                [(query, document) for document in documents],
+                batch_size=max(1, settings.rerank_batch_size),
+                show_progress_bar=False,
+            )
+            ranked = [{"index": index, "score": float(score)} for index, score in enumerate(scores)]
+            return sorted(ranked, key=lambda item: item["score"], reverse=True)
+        except ImportError as exc:
+            raise RetrievalError("尚未安装本地Rerank依赖，请执行pip install -r requirements.txt") from exc
+        except Exception as exc:
+            raise RetrievalError("本地Rerank运行失败，请检查模型下载、磁盘空间和内存") from exc
+
+
+def get_rerank_client():
+    if settings.rerank_provider == "local":
+        return LocalRerankClient()
+    if settings.rerank_provider == "modelscope":
+        return ModelScopeRerankClient()
+    raise RetrievalError("RERANK_PROVIDER只支持local或modelscope")
+
+
 def get_collection():
     try:
         import chromadb
@@ -269,7 +302,7 @@ def rerank_search(query: str, candidates: list[dict], reranker=None, top_k: int 
     if not candidates:
         return []
     top_k = top_k or settings.rag_final_top_k
-    rankings = (reranker or ModelScopeRerankClient()).rerank(query, [item["content"] for item in candidates])
+    rankings = (reranker or get_rerank_client()).rerank(query, [item["content"] for item in candidates])
     output: list[dict] = []
     for rank, result in enumerate(rankings[:top_k], start=1):
         index = result["index"]
