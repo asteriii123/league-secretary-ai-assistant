@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -10,6 +10,7 @@ from app.database import get_db
 from app.files import delete_knowledge_file, save_knowledge_file
 from app.knowledge import compute_file_hash, process_knowledge_document
 from app.models import KnowledgeChunk, KnowledgeDocument, User
+from app.retrieval import RetrievalError, hybrid_search, index_document_safe, delete_document_index, set_document_enabled
 
 
 router = APIRouter(prefix="/api/knowledge", tags=["知识资料"])
@@ -17,6 +18,10 @@ router = APIRouter(prefix="/api/knowledge", tags=["知识资料"])
 
 class EnabledPayload(BaseModel):
     enabled: bool
+
+
+class SearchPayload(BaseModel):
+    query: str = Field(min_length=2, max_length=1000)
 
 
 def owned_document(db: Session, document_id: int, user: User) -> KnowledgeDocument:
@@ -32,6 +37,8 @@ def serialize_document(document: KnowledgeDocument) -> dict:
         "status": document.status, "error_message": document.error_message,
         "page_count": document.page_count, "parent_count": document.parent_count,
         "small_count": document.small_count, "enabled": document.enabled,
+        "index_status": document.index_status, "index_error": document.index_error,
+        "indexed_at": document.indexed_at.isoformat() if document.indexed_at else None,
         "created_at": document.created_at.isoformat(), "updated_at": document.updated_at.isoformat(),
     }
 
@@ -104,12 +111,40 @@ def retry_document(
     return serialize_document(document)
 
 
+@router.post("/{document_id}/reindex")
+def reindex_document(
+    document_id: int, background: BackgroundTasks,
+    user: User = Depends(require_secretary), db: Session = Depends(get_db),
+) -> dict:
+    document = owned_document(db, document_id, user)
+    if document.status != "done":
+        raise HTTPException(status_code=409, detail="资料尚未解析完成")
+    if document.index_status == "indexing":
+        raise HTTPException(status_code=409, detail="资料正在建立索引")
+    document.index_status = "pending"; document.index_error = None; db.commit(); db.refresh(document)
+    background.add_task(index_document_safe, document.id)
+    return serialize_document(document)
+
+
+@router.post("/search/debug")
+def search_debug(payload: SearchPayload, user: User = Depends(require_secretary)) -> dict:
+    try:
+        return hybrid_search(payload.query.strip(), user.class_id)
+    except RetrievalError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
 @router.patch("/{document_id}/enabled")
 def toggle_document(document_id: int, payload: EnabledPayload, user: User = Depends(require_secretary), db: Session = Depends(get_db)) -> dict:
     document = owned_document(db, document_id, user)
     document.enabled = payload.enabled
     db.commit()
     db.refresh(document)
+    if document.index_status == "indexed":
+        try:
+            set_document_enabled(document.id, document.class_id, document.enabled)
+        except RetrievalError as exc:
+            document.index_status = "failed"; document.index_error = str(exc); db.commit(); db.refresh(document)
     return serialize_document(document)
 
 
@@ -120,5 +155,10 @@ def delete_document(document_id: int, user: User = Depends(require_secretary), d
     chunks = db.scalars(select(KnowledgeChunk).where(KnowledgeChunk.document_id == document.id)).all()
     for chunk in chunks:
         db.delete(chunk)
+    class_id = document.class_id
     db.delete(document)
     db.commit()
+    try:
+        delete_document_index(document_id, class_id)
+    except RetrievalError:
+        pass

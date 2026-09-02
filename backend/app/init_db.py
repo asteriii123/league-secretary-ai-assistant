@@ -73,6 +73,22 @@ def apply_local_migrations() -> None:
                 connection.execute(text("UPDATE meeting_records SET summary = summary_json WHERE summary = ''"))
             connection.execute(text("UPDATE meeting_records SET updated_at = created_at WHERE updated_at IS NULL"))
 
+    inspector = inspect(engine)
+    if "knowledge_documents" not in inspector.get_table_names():
+        return
+    knowledge_columns = {column["name"] for column in inspector.get_columns("knowledge_documents")}
+    knowledge_statements: list[str] = []
+    if "index_status" not in knowledge_columns:
+        knowledge_statements.append("ALTER TABLE knowledge_documents ADD COLUMN index_status VARCHAR(20) NOT NULL DEFAULT 'pending'")
+    if "index_error" not in knowledge_columns:
+        knowledge_statements.append("ALTER TABLE knowledge_documents ADD COLUMN index_error TEXT")
+    if "indexed_at" not in knowledge_columns:
+        knowledge_statements.append("ALTER TABLE knowledge_documents ADD COLUMN indexed_at DATETIME")
+    if knowledge_statements:
+        with engine.begin() as connection:
+            for statement in knowledge_statements:
+                connection.execute(text(statement))
+
 
 def initialize_database() -> None:
     Base.metadata.create_all(bind=engine)

@@ -14,3 +14,7 @@ pytesseract
 pillow
 # 可选：Docling结构化解析，安装体积较大；未安装时电子PDF自动回退到PyMuPDF逐页提取
 # docling
+# 第七阶段：本地向量库、中文全文检索与混合召回
+chromadb>=1.0,<2
+jieba==0.42.1
+rank-bm25==0.2.2

@@ -22,6 +22,8 @@ class Settings:
     modelscope_api_token: str = os.getenv("MODELSCOPE_API_TOKEN", "").strip()
     modelscope_base_url: str = os.getenv("MODELSCOPE_BASE_URL", "https://api-inference.modelscope.cn/v1").rstrip("/")
     embedding_model: str = os.getenv("MODELSCOPE_EMBEDDING_MODEL", "BAAI/bge-m3")
+    embedding_batch_size: int = int(os.getenv("MODELSCOPE_EMBEDDING_BATCH_SIZE", "16"))
+    embedding_retries: int = int(os.getenv("MODELSCOPE_EMBEDDING_RETRIES", "3"))
     rerank_model: str = os.getenv("MODELSCOPE_RERANK_MODEL", "BAAI/bge-reranker-v2-m3")
     rag_enabled: bool = os.getenv("RAG_ENABLED", "true").lower() == "true"
     whisper_enabled: bool = os.getenv("WHISPER_ENABLED", "true").lower() == "true"
@@ -29,6 +31,9 @@ class Settings:
     whisper_device: str = os.getenv("WHISPER_DEVICE", "cpu")
     whisper_compute_type: str = os.getenv("WHISPER_COMPUTE_TYPE", "int8")
     rag_final_top_k: int = int(os.getenv("RAG_FINAL_TOP_K", "3"))
+    rag_recall_top_k: int = int(os.getenv("RAG_RECALL_TOP_K", "50"))
+    rag_rrf_k: int = int(os.getenv("RAG_RRF_K", "60"))
+    rag_fusion_top_k: int = int(os.getenv("RAG_FUSION_TOP_K", "20"))
 
     @property
     def uploads_dir(self) -> Path:

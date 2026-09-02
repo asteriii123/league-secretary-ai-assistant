@@ -121,6 +121,9 @@ class KnowledgeDocument(Base):
     parent_count: Mapped[int] = mapped_column(default=0)
     small_count: Mapped[int] = mapped_column(default=0)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    index_status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    index_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    indexed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=now, onupdate=now)
 

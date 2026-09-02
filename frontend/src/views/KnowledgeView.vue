@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { ArrowLeft, Close, Delete, FolderOpened, Refresh, UploadFilled, View, VideoPlay } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import AppShell from '@/components/AppShell.vue'
-import { deleteKnowledge, fetchKnowledgeDetail, fetchKnowledgeDocuments, retryKnowledge, toggleKnowledge, uploadKnowledge, type KnowledgeDetail, type KnowledgeDocument } from '@/api/knowledge'
+import { debugKnowledgeSearch, deleteKnowledge, fetchKnowledgeDetail, fetchKnowledgeDocuments, reindexKnowledge, retryKnowledge, toggleKnowledge, uploadKnowledge, type KnowledgeDetail, type KnowledgeDocument, type RecallItem } from '@/api/knowledge'
 
 const router = useRouter()
 const documents = ref<KnowledgeDocument[]>([])
@@ -13,9 +13,14 @@ const file = ref<File>()
 const uploading = ref(false)
 const detail = ref<KnowledgeDetail>()
 const detailOpen = ref(false)
+const query = ref('')
+const searching = ref(false)
+const searchResults = ref<{ vector: RecallItem[]; bm25: RecallItem[]; rrf: RecallItem[] }>()
+const resultTab = ref<'rrf' | 'vector' | 'bm25'>('rrf')
 
 const typeText: Record<string, string> = { pdf: 'PDF', word: 'Word', ppt: 'PPT', txt: 'TXT' }
 const statusText: Record<string, string> = { pending: '待处理', processing: '解析中', done: '已完成', failed: '失败' }
+const indexText: Record<string, string> = { pending: '待索引', indexing: '索引中', indexed: '索引完成', failed: '索引失败' }
 const pendingCount = computed(() => documents.value.filter((item) => item.status === 'pending' || item.status === 'processing').length)
 
 async function load() {
@@ -51,7 +56,7 @@ async function watchDocument(id: number) {
     await new Promise((resolve) => setTimeout(resolve, 2000))
     await load()
     const target = documents.value.find((item) => item.id === id)
-    if (!target || target.status === 'done' || target.status === 'failed') return
+    if (!target || target.status === 'failed' || (target.status === 'done' && (target.index_status === 'indexed' || target.index_status === 'failed'))) return
   }
 }
 
@@ -75,6 +80,26 @@ async function retry(item: KnowledgeDocument) {
   } catch (e: any) {
     error.value = e.response?.data?.detail ?? '重试失败'
   }
+}
+
+async function reindex(item: KnowledgeDocument) {
+  error.value = ''
+  try {
+    const updated = await reindexKnowledge(item.id)
+    const index = documents.value.findIndex((doc) => doc.id === item.id)
+    if (index >= 0) documents.value[index] = updated
+    void watchDocument(item.id)
+  } catch (e: any) {
+    error.value = e.response?.data?.detail ?? '重新索引失败'
+  }
+}
+
+async function search() {
+  if (query.value.trim().length < 2) return
+  searching.value = true; error.value = ''; searchResults.value = undefined
+  try { searchResults.value = await debugKnowledgeSearch(query.value.trim()) }
+  catch (e: any) { error.value = e.response?.data?.detail ?? '混合检索失败' }
+  finally { searching.value = false }
 }
 
 async function toggle(item: KnowledgeDocument) {
@@ -113,6 +138,12 @@ onMounted(load)
       </div>
     </section>
 
+    <section class="retrieval-debug-card">
+      <div><p class="eyebrow">第七阶段调试</p><h2>混合召回测试</h2><p>查看Chroma向量、BM25全文和RRF融合结果；当前只返回候选小块，不生成AI回答。</p></div>
+      <div class="retrieval-search-row"><input v-model.trim="query" placeholder="输入测试问题，例如：团费应如何缴纳？" @keyup.enter="search" /><button class="primary-action" :disabled="query.length < 2 || searching" @click="search">{{ searching ? '召回中…' : '开始检索' }}</button></div>
+      <template v-if="searchResults"><div class="mode-tabs retrieval-tabs"><button :class="{ active: resultTab === 'rrf' }" @click="resultTab = 'rrf'">RRF融合（{{ searchResults.rrf.length }}）</button><button :class="{ active: resultTab === 'vector' }" @click="resultTab = 'vector'">向量（{{ searchResults.vector.length }}）</button><button :class="{ active: resultTab === 'bm25' }" @click="resultTab = 'bm25'">BM25（{{ searchResults.bm25.length }}）</button></div><div class="recall-results"><article v-for="item in searchResults[resultTab]" :key="item.chunk_id"><header><strong>#{{ item.rank }} {{ item.filename }}</strong><span>第{{ item.page }}页</span></header><p>{{ item.content }}</p><small v-if="resultTab === 'rrf'">向量排名 {{ item.vector_rank ?? '—' }} · BM25排名 {{ item.bm25_rank ?? '—' }} · RRF {{ item.rrf_score }}</small><small v-else>得分 {{ item.score }}</small></article><p v-if="!searchResults[resultTab].length" class="empty-copy">这一路没有召回结果。</p></div></template>
+    </section>
+
     <div class="notice-toolbar">
       <div><strong>{{ documents.length }}</strong><span>份资料</span><template v-if="pendingCount"><span class="processing-hint">{{ pendingCount }} 份处理中</span></template></div>
       <button class="secondary-action" type="button" :disabled="loading" @click="load"><Refresh />刷新状态</button>
@@ -121,14 +152,17 @@ onMounted(load)
     <section class="saved-meetings" :aria-busy="loading">
       <div class="saved-meeting-grid knowledge-grid">
         <article v-for="item in documents" :key="item.id">
-          <header><span :class="['status-chip', item.status]">{{ statusText[item.status] }}</span><span class="file-type-chip">{{ typeText[item.file_type] ?? item.file_type }}</span></header>
+          <header><span :class="['status-chip', item.status]">{{ statusText[item.status] }}</span><span :class="['status-chip', item.index_status]">{{ indexText[item.index_status] }}</span><span class="file-type-chip">{{ typeText[item.file_type] ?? item.file_type }}</span></header>
           <h3>{{ item.filename }}</h3>
           <dl class="knowledge-meta"><div><dt>页码</dt><dd>{{ item.page_count }}</dd></div><div><dt>父块</dt><dd>{{ item.parent_count }}</dd></div><div><dt>小块</dt><dd>{{ item.small_count }}</dd></div></dl>
           <p v-if="item.status === 'failed'" class="error-message">{{ item.error_message }}</p>
           <p v-else-if="item.status === 'pending' || item.status === 'processing'" class="empty-copy">正在解析，请稍候…</p>
+          <p v-else-if="item.index_status === 'failed'" class="error-message">{{ item.index_error }}</p>
+          <p v-else-if="item.index_status === 'pending' || item.index_status === 'indexing'" class="empty-copy">正在建立检索索引…</p>
           <footer>
             <button class="secondary-action" :disabled="item.status === 'pending' || item.status === 'processing'" @click="openDetail(item)"><View />查看分块</button>
             <button v-if="item.status === 'failed'" class="primary-action" @click="retry(item)"><VideoPlay />重试</button>
+            <button v-if="item.status === 'done' && item.index_status === 'failed'" class="primary-action" @click="reindex(item)"><VideoPlay />重建索引</button>
             <button class="secondary-action" @click="toggle(item)">{{ item.enabled ? '停用' : '启用' }}</button>
             <button class="danger-action" @click="remove(item)"><Delete />删除</button>
           </footer>

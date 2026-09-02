@@ -2,7 +2,7 @@
 
 这是只在当前Windows电脑运行的团务协作平台。项目仅有团支书端和学生端，不设置管理员端。
 
-第二阶段采用逐阶段开发。当前已完成本地SQLite账号基础、两端ChatGPT式流式聊天、通知管理、信息收集、会议助手和知识资料解析分块。混合检索与RAG将在后续阶段逐项开发。
+第二阶段采用逐阶段开发。当前已完成本地SQLite账号基础、两端ChatGPT式流式聊天、通知管理、信息收集、会议助手、知识资料解析分块和混合召回。Rerank与引用回答将在后续阶段开发。
 
 完整方案见 [docs/团支书AI助手第二阶段本地开发方案.md](docs/团支书AI助手第二阶段本地开发方案.md)。
 
@@ -12,7 +12,7 @@
 - 后端：FastAPI。
 - 本地数据库：SQLite、SQLAlchemy。
 - 登录：本地JWT、PBKDF2密码哈希。
-- AI：DeepSeek API流式多轮聊天，后续接入魔搭Embedding和Rerank。
+- AI：DeepSeek API流式多轮聊天，魔搭 `BAAI/bge-m3` Embedding；Rerank将在下一阶段接入。
 
 ## 第二阶段聊天功能
 
@@ -74,6 +74,21 @@ winget install --id UB-Mannheim.TesseractOCR --source winget
 
 中文OCR语言包 `chi_sim.traineddata`（winget默认不安装中文）需放到 `backend/data/tessdata/`，可从 tessdata_fast 仓库下载。后端Python依赖（PyMuPDF、pytesseract、Pillow）通过 `pip install -r requirements.txt` 安装；Docling为可选增强，体积较大，未安装时电子PDF自动回退PyMuPDF。
 
+## 第七阶段混合召回
+
+- 解析完成的小块以每批16条调用魔搭 `BAAI/bge-m3` Embedding，失败最多重试3次。
+- 向量保存在 `backend/data/chroma`，Jieba分词后的BM25索引保存在 `backend/data/indexes`。
+- 查询时Chroma与BM25各召回top-50，以RRF `k=60`融合、去重并保留top-20。
+- 所有结果按当前班级和资料启用状态过滤；停用或删除资料会同步更新两路索引。
+- 知识资料页面提供调试框，可分别查看向量、BM25和RRF排名。本阶段只返回候选小块，不做Rerank或AI回答。
+
+使用前在 `backend/.env` 填写：
+
+```text
+MODELSCOPE_API_TOKEN=你的魔搭访问令牌
+MODELSCOPE_EMBEDDING_MODEL=BAAI/bge-m3
+```
+
 ## 第一次安装
 
 需要先安装Node.js和Python 3.11或更新版本。
@@ -95,6 +110,7 @@ Copy-Item .env.example .env
 ```text
 JWT_SECRET=换成一段仅自己知道的随机长文本
 DEEPSEEK_API_KEY=你的DeepSeek密钥
+MODELSCOPE_API_TOKEN=你的魔搭访问令牌
 ```
 
 真实密钥不能提交GitHub。`backend/.env`已加入Git忽略。
@@ -196,11 +212,11 @@ npm run build
 - 学生不能创建、编辑或删除通知。
 - 通知已读状态、附件下载和AI辅助起草接口可正常使用。
 - 信息收集支持动态表单、退回重交、附件校验和CSV导出。
+- 小块可写入Chroma与BM25，混合召回结果包含两路排名和RRF分数。
 
 ## 后续阶段
 
-1. Chroma、BM25和RRF混合检索。
-2. Rerank、父块回溯和引用回答。
-3. RAGAS测评。
+1. Rerank、父块回溯和引用回答。
+2. RAGAS测评。
 
 每个阶段单独验收后再开始下一阶段，不进行Render或其他线上部署。

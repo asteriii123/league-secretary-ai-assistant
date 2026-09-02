@@ -370,7 +370,15 @@ def process_knowledge_document(document_id: int) -> None:
             document.small_count = small_count
             document.status = "done"
             document.error_message = None
+            document.index_status = "pending"
+            document.index_error = None
             db.commit()
+            if settings.rag_enabled:
+                from app.retrieval import RetrievalError, index_document
+                try:
+                    index_document(document.id)
+                except RetrievalError:
+                    pass
         except KnowledgeError as exc:
             document.status = "failed"
             document.error_message = str(exc)

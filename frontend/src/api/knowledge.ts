@@ -1,6 +1,7 @@
 import { http } from './http'
 
 export type KnowledgeStatus = 'pending' | 'processing' | 'done' | 'failed'
+export type IndexStatus = 'pending' | 'indexing' | 'indexed' | 'failed'
 
 export interface KnowledgeSmallChunk {
   id: number
@@ -28,6 +29,9 @@ export interface KnowledgeDocument {
   parent_count: number
   small_count: number
   enabled: boolean
+  index_status: IndexStatus
+  index_error?: string
+  indexed_at?: string
   created_at: string
   updated_at: string
 }
@@ -52,6 +56,20 @@ export async function fetchKnowledgeDetail(id: number) {
 
 export async function retryKnowledge(id: number) {
   return (await http.post<KnowledgeDocument>(`/api/knowledge/${id}/retry`)).data
+}
+
+export async function reindexKnowledge(id: number) {
+  return (await http.post<KnowledgeDocument>(`/api/knowledge/${id}/reindex`)).data
+}
+
+export interface RecallItem {
+  chunk_id: number; document_id: number; parent_id: number; content: string; filename: string
+  heading: string; section_path: string; page: number; rank: number; score?: number
+  vector_rank?: number; bm25_rank?: number; rrf_score?: number
+}
+
+export async function debugKnowledgeSearch(query: string) {
+  return (await http.post<{ vector: RecallItem[]; bm25: RecallItem[]; rrf: RecallItem[] }>('/api/knowledge/search/debug', { query }, { timeout: 130000 })).data
 }
 
 export async function toggleKnowledge(id: number, enabled: boolean) {
