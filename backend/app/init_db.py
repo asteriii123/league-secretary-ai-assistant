@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import inspect, select, text
 
 from app.auth import hash_password
 from app.database import Base, SessionLocal, engine
@@ -12,8 +12,23 @@ DEMO_CLASSES = [
 ]
 
 
+def apply_local_migrations() -> None:
+    """Apply small, data-preserving SQLite upgrades for the local application."""
+    inspector = inspect(engine)
+    if "notices" not in inspector.get_table_names():
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("notices")}
+    if "attachment_name" not in columns:
+        with engine.begin() as connection:
+            connection.execute(
+                text("ALTER TABLE notices ADD COLUMN attachment_name VARCHAR(255)")
+            )
+
+
 def initialize_database() -> None:
     Base.metadata.create_all(bind=engine)
+    apply_local_migrations()
     with SessionLocal() as db:
         for index, (name, invite_code) in enumerate(DEMO_CLASSES, start=1):
             classroom = db.scalar(select(ClassRoom).where(ClassRoom.name == name))

@@ -12,7 +12,7 @@ const checking = ref(false)
 const connected = ref(false)
 
 const modules = [
-  { title: '本班通知', description: '查看团支书发布的最新通知', icon: Bell, tone: 'coral' },
+  { title: '本班通知', description: '查看团支书发布的最新通知', icon: Bell, tone: 'coral', route: '/student/notices' },
   { title: '待提交任务', description: '查看个人信息和材料收集任务', icon: Document, tone: 'blue' },
   { title: '文件提交', description: '未来上传表格、申请书和证明材料', icon: UploadFilled, tone: 'green' },
   { title: 'AI 答疑', description: '使用 DeepSeek 测试团务常见问题问答', icon: ChatDotRound, tone: 'purple', route: '/student/ai-qa' },
