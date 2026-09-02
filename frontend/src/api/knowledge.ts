@@ -63,13 +63,13 @@ export async function reindexKnowledge(id: number) {
 }
 
 export interface RecallItem {
-  chunk_id: number; document_id: number; parent_id: number; content: string; filename: string
+  chunk_id?: number; document_id: number; parent_id: number; content: string; filename: string
   heading: string; section_path: string; page: number; rank: number; score?: number
-  vector_rank?: number; bm25_rank?: number; rrf_score?: number
+  vector_rank?: number; bm25_rank?: number; rrf_score?: number; rerank_score?: number; source_label?: string
 }
 
 export async function debugKnowledgeSearch(query: string) {
-  return (await http.post<{ vector: RecallItem[]; bm25: RecallItem[]; rrf: RecallItem[] }>('/api/knowledge/search/debug', { query }, { timeout: 130000 })).data
+  return (await http.post<{ vector: RecallItem[]; bm25: RecallItem[]; rrf: RecallItem[]; rerank: RecallItem[]; parents: RecallItem[] }>('/api/rag/search/debug', { query }, { timeout: 180000 })).data
 }
 
 export async function toggleKnowledge(id: number, enabled: boolean) {

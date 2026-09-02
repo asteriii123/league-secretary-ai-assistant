@@ -89,6 +89,22 @@ MODELSCOPE_API_TOKEN=你的魔搭访问令牌
 MODELSCOPE_EMBEDDING_MODEL=BAAI/bge-m3
 ```
 
+## 第八阶段Rerank与引用回答
+
+- RRF融合后的top-20小块调用魔搭 `BAAI/bge-reranker-v2-m3` 重新排序，默认保留top-3。
+- 系统根据小块的 `parent_id` 回溯SQLite中的父块，同一父块只发送给DeepSeek一次。
+- DeepSeek回答会使用 `[资料1]` 格式引用；前端同时显示文件名、章节和页码。
+- 确定性政策问题只能依据本班已启用资料。没有足够资料时必须说明“知识库依据不足”，通用建议会与资料结论分开。
+- 团支书可在知识资料页面查看向量、BM25、RRF、Rerank和最终父块五段调试结果；学生不能调用调试接口。
+
+使用前还需确认 `backend/.env` 包含：
+
+```text
+MODELSCOPE_RERANK_MODEL=BAAI/bge-reranker-v2-m3
+RAG_FINAL_TOP_K=3
+RAG_ENABLED=true
+```
+
 ## 第一次安装
 
 需要先安装Node.js和Python 3.11或更新版本。
@@ -213,10 +229,11 @@ npm run build
 - 通知已读状态、附件下载和AI辅助起草接口可正常使用。
 - 信息收集支持动态表单、退回重交、附件校验和CSV导出。
 - 小块可写入Chroma与BM25，混合召回结果包含两路排名和RRF分数。
+- Rerank默认选择top-3小块，回溯父块后流式回答并显示文件、章节和页码引用。
 
 ## 后续阶段
 
-1. Rerank、父块回溯和引用回答。
-2. RAGAS测评。
+1. RAGAS测评。
+2. 一键启动、备份与最终文档整理。
 
 每个阶段单独验收后再开始下一阶段，不进行Render或其他线上部署。

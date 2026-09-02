@@ -1,4 +1,4 @@
-"""第七阶段：Embedding、Chroma、BM25 与 RRF 混合召回。"""
+"""知识库检索：Embedding、混合召回、Rerank 与父块回溯。"""
 import json
 import time
 from datetime import datetime
@@ -42,6 +42,45 @@ class ModelScopeEmbeddingClient:
                 if attempt + 1 < settings.embedding_retries:
                     time.sleep(1.5 * (attempt + 1))
         raise RetrievalError("魔搭Embedding调用失败，请检查Token、模型名和网络") from last_error
+
+
+class ModelScopeRerankClient:
+    def rerank(self, query: str, documents: list[str]) -> list[dict]:
+        if not settings.modelscope_api_token:
+            raise RetrievalError("MODELSCOPE_API_TOKEN尚未配置，无法进行Rerank")
+        last_error: Exception | None = None
+        for attempt in range(settings.embedding_retries):
+            try:
+                response = httpx.post(
+                    f"{settings.modelscope_base_url}/rerank",
+                    headers={"Authorization": f"Bearer {settings.modelscope_api_token}"},
+                    json={
+                        "model": settings.rerank_model,
+                        "query": query,
+                        "documents": documents,
+                        "top_n": len(documents),
+                        "return_documents": False,
+                    },
+                    timeout=120,
+                )
+                response.raise_for_status()
+                payload = response.json()
+                items = payload.get("results", payload.get("data", []))
+                ranked = [
+                    {
+                        "index": int(item["index"]),
+                        "score": float(item.get("relevance_score", item.get("score"))),
+                    }
+                    for item in items
+                ]
+                if not ranked:
+                    raise ValueError("Rerank返回空结果")
+                return sorted(ranked, key=lambda item: item["score"], reverse=True)
+            except (httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
+                last_error = exc
+                if attempt + 1 < settings.embedding_retries:
+                    time.sleep(1.5 * (attempt + 1))
+        raise RetrievalError("魔搭Rerank调用失败，请检查Token、模型名和网络") from last_error
 
 
 def get_collection():
@@ -188,3 +227,66 @@ def hybrid_search(query: str, class_id: int, embedder=None, collection=None) -> 
     vectors = vector_search(query, class_id, embedder=embedder, collection=collection)
     keywords = bm25_search(query, class_id)
     return {"vector": vectors, "bm25": keywords, "rrf": rrf_fuse(vectors, keywords)}
+
+
+def rerank_search(query: str, candidates: list[dict], reranker=None, top_k: int | None = None) -> list[dict]:
+    if not candidates:
+        return []
+    top_k = top_k or settings.rag_final_top_k
+    rankings = (reranker or ModelScopeRerankClient()).rerank(query, [item["content"] for item in candidates])
+    output: list[dict] = []
+    for rank, result in enumerate(rankings[:top_k], start=1):
+        index = result["index"]
+        if index < 0 or index >= len(candidates):
+            continue
+        output.append({
+            **candidates[index],
+            "rank": rank,
+            "rerank_score": round(float(result["score"]), 6),
+        })
+    return output
+
+
+def resolve_parent_chunks(candidates: list[dict], class_id: int) -> list[dict]:
+    parent_ids = list(dict.fromkeys(int(item["parent_id"]) for item in candidates if item.get("parent_id")))
+    if not parent_ids:
+        return []
+    with SessionLocal() as db:
+        rows = db.execute(
+            select(KnowledgeChunk, KnowledgeDocument)
+            .join(KnowledgeDocument, KnowledgeDocument.id == KnowledgeChunk.document_id)
+            .where(
+                KnowledgeChunk.id.in_(parent_ids),
+                KnowledgeChunk.chunk_type == "parent",
+                KnowledgeDocument.class_id == class_id,
+                KnowledgeDocument.enabled.is_(True),
+                KnowledgeDocument.index_status == "indexed",
+            )
+        ).all()
+    by_id = {chunk.id: (chunk, document) for chunk, document in rows}
+    output: list[dict] = []
+    for candidate in candidates:
+        parent_id = int(candidate.get("parent_id") or 0)
+        if parent_id not in by_id or any(item["parent_id"] == parent_id for item in output):
+            continue
+        chunk, document = by_id[parent_id]
+        output.append({
+            "parent_id": chunk.id,
+            "document_id": document.id,
+            "filename": document.filename,
+            "heading": chunk.heading,
+            "section_path": chunk.section_path,
+            "page": chunk.page,
+            "content": chunk.content,
+            "rank": len(output) + 1,
+            "source_label": f"资料{len(output) + 1}",
+            "matched_chunk_id": candidate["chunk_id"],
+            "rerank_score": candidate["rerank_score"],
+        })
+    return output
+
+
+def retrieve_with_rerank(query: str, class_id: int, embedder=None, collection=None, reranker=None) -> dict:
+    recalled = hybrid_search(query, class_id, embedder=embedder, collection=collection)
+    reranked = rerank_search(query, recalled["rrf"], reranker=reranker)
+    return {**recalled, "rerank": reranked, "parents": resolve_parent_chunks(reranked, class_id)}

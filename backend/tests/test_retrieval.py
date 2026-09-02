@@ -4,7 +4,15 @@ from sqlalchemy import select
 
 from app.database import SessionLocal
 from app.models import ClassRoom, KnowledgeChunk, KnowledgeDocument, User
-from app.retrieval import bm25_search, index_document, rrf_fuse, set_document_enabled, vector_search
+from app.retrieval import (
+    bm25_search,
+    index_document,
+    rerank_search,
+    resolve_parent_chunks,
+    rrf_fuse,
+    set_document_enabled,
+    vector_search,
+)
 
 
 class FakeEmbedder:
@@ -40,6 +48,12 @@ class FakeCollection:
         enabled = where["$and"][1]["enabled"]["$eq"]
         matches = [value for value in self.items.values() if value["metadata"]["class_id"] == class_id and value["metadata"]["enabled"] == enabled][:n_results]
         return {"documents": [[item["document"] for item in matches]], "metadatas": [[item["metadata"] for item in matches]], "distances": [[0.1 + index * 0.01 for index, _ in enumerate(matches)]]}
+
+
+class FakeReranker:
+    def rerank(self, query: str, documents: list[str]) -> list[dict]:
+        assert query == "团费怎么缴纳"
+        return [{"index": 1, "score": 0.92}, {"index": 0, "score": 0.71}]
 
 
 def create_index_fixture() -> tuple[int, int]:
@@ -94,5 +108,21 @@ def test_embedding_index_bm25_and_rrf() -> None:
         set_document_enabled(document_id, class_id, False, collection=collection)
         assert all(not value["metadata"]["enabled"] for value in collection.items.values())
         assert bm25_search("团费缴纳", class_id) == []
+    finally:
+        cleanup(document_id)
+
+
+def test_rerank_selects_small_chunks_then_deduplicates_parents() -> None:
+    document_id, class_id = create_index_fixture(); embedder = FakeEmbedder(); collection = FakeCollection()
+    try:
+        index_document(document_id, embedder=embedder, collection=collection)
+        candidates = vector_search("团费怎么缴纳", class_id, embedder=embedder, collection=collection)[:2]
+        reranked = rerank_search("团费怎么缴纳", candidates, reranker=FakeReranker(), top_k=2)
+        assert reranked[0]["chunk_id"] == candidates[1]["chunk_id"]
+        assert reranked[0]["rerank_score"] == 0.92
+        parents = resolve_parent_chunks(reranked, class_id)
+        assert len(parents) == 1
+        assert parents[0]["source_label"] == "资料1"
+        assert parents[0]["content"] == "团务测试父块"
     finally:
         cleanup(document_id)

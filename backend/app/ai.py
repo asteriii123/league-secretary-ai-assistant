@@ -6,10 +6,12 @@ from typing import Any, Literal
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field, ValidationError
 from app.auth import get_current_user, require_secretary
 from app.config import settings
 from app.models import User
+from app.retrieval import RetrievalError, retrieve_with_rerank
 
 
 router = APIRouter(prefix="/api/ai", tags=["AI"])
@@ -149,6 +151,27 @@ def sse(event: str, data: dict[str, Any]) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
+def rag_system_prompt(role: str, parents: list[dict]) -> str:
+    role_prompt = (
+        "协助团支书起草通知、整理工作计划、准备会议和解答团务常见问题。"
+        if role == "secretary"
+        else "帮助学生理解入团入党材料、团员义务和团务常见问题。"
+    )
+    rules = (
+        "回答使用简洁、友善的中文。对政策、流程、时间和材料要求等确定性问题，只能依据下方本班资料回答，"
+        "不得虚构政策、文件、日期或来源；每项资料结论都用[资料1]格式标注。资料不足时明确说‘知识库依据不足’，"
+        "不要伪造引用。可以提供通用建议，但必须明确标注为通用建议，并与资料结论分开。"
+    )
+    if not parents:
+        return f"你是高校团务AI助手，{role_prompt}{rules}当前没有检索到可用资料。"
+    sources = []
+    for item in parents:
+        location = f"第{item['page']}页" if item.get("page") else "页码未知"
+        heading = item.get("section_path") or item.get("heading") or "未命名章节"
+        sources.append(f"[{item['source_label']}] 文件：{item['filename']}；章节：{heading}；{location}\n{item['content']}")
+    return f"你是高校团务AI助手，{role_prompt}{rules}\n\n本班知识资料：\n" + "\n\n".join(sources)
+
+
 @router.post("/chat/stream")
 async def chat_stream(
     request: ChatRequest,
@@ -156,17 +179,24 @@ async def chat_stream(
     client: DeepSeekClient = Depends(get_deepseek_client),
 ) -> StreamingResponse:
     async def generate():
-        role_prompt = (
-            "协助团支书起草通知、整理工作计划、准备会议和解答团务常见问题。"
-            if user.role == "secretary"
-            else "帮助学生理解入团入党材料、团员义务和团务常见问题。"
-        )
-        system_prompt = (
-            f"你是高校团务AI助手，{role_prompt}"
-            "当前尚未接入本地知识库，不得虚构学校政策、文件名称、截止日期或引用来源；"
-            "涉及学校具体规定时，明确建议以学校正式文件或团支书通知为准。回答使用简洁、友善的中文。"
-        )
+        parents: list[dict] = []
+        retrieval_warning = ""
+        if settings.rag_enabled:
+            yield sse("status", {"stage": "retrieving", "message": "正在检索本班知识资料"})
+            try:
+                result = await run_in_threadpool(retrieve_with_rerank, request.question.strip(), user.class_id)
+                parents = result["parents"]
+            except RetrievalError as exc:
+                retrieval_warning = str(exc)
+        system_prompt = rag_system_prompt(user.role, parents)
         messages = [{"role": "system", "content": system_prompt}] + [item.model_dump() for item in request.history[-10:]] + [{"role": "user", "content": request.question.strip()}]
+        if parents:
+            yield sse("sources", {"items": [
+                {"label": item["source_label"], "filename": item["filename"], "heading": item["section_path"] or item["heading"], "page": item["page"]}
+                for item in parents
+            ]})
+        elif retrieval_warning:
+            yield sse("status", {"stage": "retrieval_warning", "message": f"知识库暂不可用，将按通用问题回答：{retrieval_warning}"})
         yield sse("status", {"stage": "generating", "message": "DeepSeek正在生成回答"})
         try:
             async for content in client.stream(messages):

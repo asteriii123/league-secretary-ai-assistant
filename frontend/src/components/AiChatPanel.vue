@@ -3,7 +3,8 @@ import { computed, nextTick, ref } from 'vue'
 import { ChatDotRound, Close, Delete, Promotion, RefreshRight } from '@element-plus/icons-vue'
 import { API_BASE_URL } from '@/api/http'
 
-interface Message { role: 'user' | 'assistant'; content: string; failed?: boolean }
+interface Source { label: string; filename: string; heading: string; page: number }
+interface Message { role: 'user' | 'assistant'; content: string; failed?: boolean; sources?: Source[] }
 const props = defineProps<{ role: 'secretary' | 'student' }>()
 const messages = ref<Message[]>([])
 const question = ref('')
@@ -24,6 +25,7 @@ function handleEvent(block: string) {
   const answer = messages.value[messages.value.length - 1]
   if (!answer || answer.role !== 'assistant') return
   if (event === 'content') answer.content += data.text
+  if (event === 'sources') answer.sources = data.items
   if (event === 'status') stage.value = data.message
   if (event === 'error') { answer.content = data.message; answer.failed = true }
   scrollToLatest()
@@ -59,15 +61,15 @@ function clearChat() { if (!loading.value) messages.value = [] }
 
 <template>
   <section class="chat-panel" aria-label="AI团务助手">
-    <header class="chat-header"><div><span class="module-icon purple"><ChatDotRound /></span><div><p class="eyebrow">DeepSeek 通用问答</p><h2>AI 团务助手</h2></div></div><button class="icon-action" type="button" aria-label="清空聊天" :disabled="loading || !messages.length" @click="clearChat"><Delete /></button></header>
+    <header class="chat-header"><div><span class="module-icon purple"><ChatDotRound /></span><div><p class="eyebrow">DeepSeek + 本班知识库</p><h2>AI 团务助手</h2></div></div><button class="icon-action" type="button" aria-label="清空聊天" :disabled="loading || !messages.length" @click="clearChat"><Delete /></button></header>
     <div ref="chatBody" class="chat-body" aria-live="polite">
       <div v-if="!messages.length" class="chat-empty"><strong>今天想处理什么团务工作？</strong><p>直接提问，或从下面的示例开始。</p><div><button v-for="item in examples" :key="item" type="button" @click="send(item)">{{ item }}</button></div></div>
       <article v-for="(message, index) in messages" :key="index" :class="['chat-message', message.role, { error: message.failed }]">
-        <span>{{ message.role === 'user' ? '你' : 'AI' }}</span><div><p>{{ message.content || (loading && index === messages.length - 1 ? '正在思考…' : '') }}</p><button v-if="message.failed" class="retry-button" type="button" @click="retry(index)"><RefreshRight />重新发送</button></div>
+        <span>{{ message.role === 'user' ? '你' : 'AI' }}</span><div><p>{{ message.content || (loading && index === messages.length - 1 ? '正在思考…' : '') }}</p><ul v-if="message.sources?.length" class="chat-sources"><li v-for="source in message.sources" :key="source.label"><strong>[{{ source.label }}]</strong> {{ source.filename }} · {{ source.heading || '未命名章节' }} · 第{{ source.page }}页</li></ul><button v-if="message.failed" class="retry-button" type="button" @click="retry(index)"><RefreshRight />重新发送</button></div>
       </article>
     </div>
     <p v-if="stage" class="chat-stage" role="status">{{ stage }}</p>
     <div class="chat-composer"><textarea v-model="question" rows="3" maxlength="2000" aria-label="输入团务问题" placeholder="输入问题，Enter发送，Shift+Enter换行" @keydown.enter.exact.prevent="send()"></textarea><button v-if="loading" class="send-button stop" type="button" aria-label="停止生成" @click="stop"><Close /></button><button v-else class="send-button" type="button" aria-label="发送问题" :disabled="!question.trim()" @click="send()"><Promotion /></button></div>
-    <p class="chat-disclaimer">当前未接入本地知识库，回答属于通用建议，请以学校和学院正式文件为准。</p>
+    <p class="chat-disclaimer">知识库回答会显示引用；没有可靠资料时仅提供通用建议，请以学校和学院正式文件为准。</p>
   </section>
 </template>

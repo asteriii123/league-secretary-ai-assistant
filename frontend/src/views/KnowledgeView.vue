@@ -15,8 +15,8 @@ const detail = ref<KnowledgeDetail>()
 const detailOpen = ref(false)
 const query = ref('')
 const searching = ref(false)
-const searchResults = ref<{ vector: RecallItem[]; bm25: RecallItem[]; rrf: RecallItem[] }>()
-const resultTab = ref<'rrf' | 'vector' | 'bm25'>('rrf')
+const searchResults = ref<{ vector: RecallItem[]; bm25: RecallItem[]; rrf: RecallItem[]; rerank: RecallItem[]; parents: RecallItem[] }>()
+const resultTab = ref<'parents' | 'rerank' | 'rrf' | 'vector' | 'bm25'>('parents')
 
 const typeText: Record<string, string> = { pdf: 'PDF', word: 'Word', ppt: 'PPT', txt: 'TXT' }
 const statusText: Record<string, string> = { pending: '待处理', processing: '解析中', done: '已完成', failed: '失败' }
@@ -139,9 +139,9 @@ onMounted(load)
     </section>
 
     <section class="retrieval-debug-card">
-      <div><p class="eyebrow">第七阶段调试</p><h2>混合召回测试</h2><p>查看Chroma向量、BM25全文和RRF融合结果；当前只返回候选小块，不生成AI回答。</p></div>
+      <div><p class="eyebrow">第八阶段调试</p><h2>RAG完整检索链路</h2><p>依次查看Chroma、BM25、RRF、Rerank和最终回溯的父块；AI回答使用最后一栏资料。</p></div>
       <div class="retrieval-search-row"><input v-model.trim="query" placeholder="输入测试问题，例如：团费应如何缴纳？" @keyup.enter="search" /><button class="primary-action" :disabled="query.length < 2 || searching" @click="search">{{ searching ? '召回中…' : '开始检索' }}</button></div>
-      <template v-if="searchResults"><div class="mode-tabs retrieval-tabs"><button :class="{ active: resultTab === 'rrf' }" @click="resultTab = 'rrf'">RRF融合（{{ searchResults.rrf.length }}）</button><button :class="{ active: resultTab === 'vector' }" @click="resultTab = 'vector'">向量（{{ searchResults.vector.length }}）</button><button :class="{ active: resultTab === 'bm25' }" @click="resultTab = 'bm25'">BM25（{{ searchResults.bm25.length }}）</button></div><div class="recall-results"><article v-for="item in searchResults[resultTab]" :key="item.chunk_id"><header><strong>#{{ item.rank }} {{ item.filename }}</strong><span>第{{ item.page }}页</span></header><p>{{ item.content }}</p><small v-if="resultTab === 'rrf'">向量排名 {{ item.vector_rank ?? '—' }} · BM25排名 {{ item.bm25_rank ?? '—' }} · RRF {{ item.rrf_score }}</small><small v-else>得分 {{ item.score }}</small></article><p v-if="!searchResults[resultTab].length" class="empty-copy">这一路没有召回结果。</p></div></template>
+      <template v-if="searchResults"><div class="mode-tabs retrieval-tabs"><button :class="{ active: resultTab === 'parents' }" @click="resultTab = 'parents'">最终父块（{{ searchResults.parents.length }}）</button><button :class="{ active: resultTab === 'rerank' }" @click="resultTab = 'rerank'">Rerank（{{ searchResults.rerank.length }}）</button><button :class="{ active: resultTab === 'rrf' }" @click="resultTab = 'rrf'">RRF（{{ searchResults.rrf.length }}）</button><button :class="{ active: resultTab === 'vector' }" @click="resultTab = 'vector'">向量（{{ searchResults.vector.length }}）</button><button :class="{ active: resultTab === 'bm25' }" @click="resultTab = 'bm25'">BM25（{{ searchResults.bm25.length }}）</button></div><div class="recall-results"><article v-for="item in searchResults[resultTab]" :key="item.chunk_id ?? item.parent_id"><header><strong>#{{ item.rank }} {{ item.filename }}</strong><span>第{{ item.page }}页</span></header><p>{{ item.content }}</p><small v-if="resultTab === 'parents'">[{{ item.source_label }}] {{ item.section_path || item.heading }}</small><small v-else-if="resultTab === 'rerank'">Rerank得分 {{ item.rerank_score }}</small><small v-else-if="resultTab === 'rrf'">向量排名 {{ item.vector_rank ?? '—' }} · BM25排名 {{ item.bm25_rank ?? '—' }} · RRF {{ item.rrf_score }}</small><small v-else>得分 {{ item.score }}</small></article><p v-if="!searchResults[resultTab].length" class="empty-copy">这一路没有召回结果。</p></div></template>
     </section>
 
     <div class="notice-toolbar">

@@ -177,6 +177,8 @@ button { cursor: pointer; }
 .chat-message.user > span { grid-column: 2; grid-row: 1; color: var(--green-dark); background: var(--mint); }
 .chat-message.user > div { grid-column: 1; grid-row: 1; justify-self: end; border-radius: 15px 4px 15px 15px; color: white; border-color: var(--green); background: var(--green); }
 .chat-message.error > div { color: #92372c; border-color: #f0bbb4; background: #fff3f1; }
+.chat-sources { display: grid; gap: 5px; margin: 12px 0 0; padding: 10px 12px; border-top: 1px solid var(--line); color: #66736f; font-size: 12px; list-style: none; }
+.chat-sources strong { color: var(--green); }
 .retry-button { min-height: 38px; display: inline-flex; align-items: center; gap: 6px; margin-top: 9px; padding: 0 10px; border: 0; border-radius: 8px; color: #92372c; background: #ffe4df; }
 .retry-button svg { width: 15px; }
 .chat-stage { margin: 0; padding: 9px 20px; color: var(--green); background: #f0f8f4; font-size: 13px; }
