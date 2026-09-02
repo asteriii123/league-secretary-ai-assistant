@@ -37,8 +37,8 @@ button { cursor: pointer; }
 .login-box h2 { margin: 10px 0 8px; font-size: 34px; letter-spacing: -.03em; }
 .login-hint { margin: 0 0 32px; color: var(--muted); line-height: 1.7; }
 .class-field { display: grid; gap: 9px; margin-bottom: 12px; color: var(--ink); font-size: 14px; font-weight: 700; }
-.class-field select { width: 100%; min-height: 48px; padding: 0 14px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); background: white; outline: none; }
-.class-field select:focus-visible { border-color: var(--green); box-shadow: 0 0 0 3px rgba(23,107,82,.14); }
+.class-field select, .class-field input { width: 100%; min-height: 48px; padding: 0 14px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); background: white; outline: none; }
+.class-field select:focus-visible, .class-field input:focus-visible { border-color: var(--green); box-shadow: 0 0 0 3px rgba(23,107,82,.14); }
 .selection-hint { margin: 0 0 14px; color: #9a661f; font-size: 12px; }
 .role-options { display: grid; gap: 14px; }
 .role-card { width: 100%; display: flex; align-items: center; gap: 16px; padding: 19px; text-align: left; border: 1px solid var(--line); border-radius: 18px; background: white; color: var(--ink); transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
@@ -133,6 +133,9 @@ button { cursor: pointer; }
 .primary-action:hover { background: var(--green-dark); }
 .primary-action:focus-visible { outline: 3px solid rgba(23,107,82,.24); outline-offset: 3px; }
 .primary-action:disabled { cursor: not-allowed; opacity: .5; }
+.login-submit { width: 100%; justify-content: center; margin-top: 10px; }
+.text-action { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 10px; border: 0; color: var(--green); background: transparent; font-weight: 700; }
+.text-action:focus-visible { outline: 3px solid rgba(23,107,82,.24); outline-offset: 2px; border-radius: 8px; }
 .error-message { margin: 5px 0 0; padding: 12px 14px; border-radius: 10px; color: #9e3428; background: #fff0ed; line-height: 1.6; }
 .privacy-note, .warning-note { display: flex; align-items: flex-start; gap: 9px; padding: 13px 15px; border-radius: 12px; line-height: 1.6; }
 .privacy-note { margin: -10px 0 20px; color: #315e51; background: #e8f5f0; }

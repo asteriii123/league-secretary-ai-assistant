@@ -1,16 +1,26 @@
 import os
+from contextlib import asynccontextmanager
 from typing import Literal
 
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.ai import router as ai_router
+from app.init_db import initialize_database
+from app.routers.auth import router as auth_router
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    initialize_database()
+    yield
 
 
 app = FastAPI(
     title="团支书 AI 助手 API",
     description="项目第一阶段的 FastAPI 基础服务。",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 allowed_origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
@@ -27,6 +37,7 @@ app.add_middleware(
 )
 
 app.include_router(ai_router)
+app.include_router(auth_router)
 
 
 @app.get("/", tags=["基础"])

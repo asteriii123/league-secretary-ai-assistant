@@ -1,45 +1,26 @@
 # 团支书 AI 助手
 
-这是团支书端和学生端的基础框架，并加入了第一版 DeepSeek 测试功能。
+这是只在当前Windows电脑运行的团务协作平台。项目仅有团支书端和学生端，不设置管理员端。
 
-## 当前包含
+第二阶段采用逐阶段开发。当前已完成第一阶段：本地SQLite数据库、真实账号登录、班级权限、本地数据目录和统一配置；聊天、通知、信息收集、会议转写和RAG将在后续阶段逐项开发。
 
-- Vue 3 + TypeScript + Vite 前端
-- 班级与身份选择页（静态演示班级）
-- 团支书工作台和学生工作台
-- FastAPI 后端、健康检查和 DeepSeek 统一调用接口
-- 学生端团务问答（暂未接本地知识库）
-- 会议文字稿脱敏与结构化总结
-- 基础后端测试
+完整方案见 [docs/团支书AI助手第二阶段本地开发方案.md](docs/团支书AI助手第二阶段本地开发方案.md)。
 
-## 当前不包含
+## 当前技术
 
-真实登录、数据库、通知、信息收集、文件上传、LangGraph、本地知识库、音视频转写和飞书机器人。会议总结目前需要手动粘贴已经转写好的文字稿。
+- 前端：Vue 3、TypeScript、Vite。
+- 后端：FastAPI。
+- 本地数据库：SQLite、SQLAlchemy。
+- 登录：本地JWT、PBKDF2密码哈希。
+- AI：DeepSeek API，后续接入魔搭Embedding和Rerank。
 
-## 目录
+## 第一次安装
 
-```text
-团支书助手/
-├─ frontend/              # Vue 前端
-│  └─ src/
-│     ├─ api/             # 后端请求
-│     ├─ components/      # 公共页面布局
-│     ├─ config/          # 静态演示班级
-│     ├─ router/          # 页面路由
-│     ├─ stores/          # 当前班级和身份
-│     └─ views/           # 登录、团支书端和学生端页面
-└─ backend/
-   ├─ app/main.py         # FastAPI 入口
-   └─ tests/              # 后端测试
-```
+需要先安装Node.js和Python 3.11或更新版本。
 
-## 第一次运行
+### 1. 安装后端
 
-需要先安装 Node.js 和 Python 3.11 或更新版本。
-
-### 1. 启动后端
-
-在项目目录打开 PowerShell：
+在项目根目录打开PowerShell：
 
 ```powershell
 cd backend
@@ -47,38 +28,88 @@ py -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 Copy-Item .env.example .env
-# 打开 .env，将 DEEPSEEK_API_KEY= 后面填写为自己的密钥
-uvicorn app.main:app --reload --env-file .env
 ```
 
-后端地址是 `http://127.0.0.1:8000`，接口文档是 `http://127.0.0.1:8000/docs`。
+打开 `backend/.env`，至少修改：
 
-### 2. 启动前端
+```text
+JWT_SECRET=换成一段仅自己知道的随机长文本
+DEEPSEEK_API_KEY=你的DeepSeek密钥
+```
 
-再打开一个 PowerShell 窗口：
+真实密钥不能提交GitHub。`backend/.env`已加入Git忽略。
+
+### 2. 安装前端
 
 ```powershell
 cd frontend
 npm install
+```
+
+## 启动项目
+
+打开第一个PowerShell窗口：
+
+```powershell
+cd backend
+.\.venv\Scripts\Activate.ps1
+uvicorn app.main:app --reload --env-file .env
+```
+
+后端地址：
+
+- 服务：`http://127.0.0.1:8000`
+- 接口文档：`http://127.0.0.1:8000/docs`
+
+再打开第二个PowerShell窗口：
+
+```powershell
+cd frontend
 npm run dev
 ```
 
-浏览器打开 `http://localhost:5173`，先选择演示班级，再选择团支书或学生身份。
+浏览器打开 `http://localhost:5173`。
 
-## 配置 DeepSeek
+## 演示账号
 
-密钥只配置在 FastAPI 后端，不能填写在 Vue 前端，也不能提交到 GitHub。
+首次启动FastAPI时会自动初始化三个班级：
 
-1. 在 DeepSeek 开放平台创建 API Key。
-2. 本地开发时复制 `backend/.env.example` 为 `backend/.env`，填写 `DEEPSEEK_API_KEY`。
-3. `backend/.env` 已被 `.gitignore` 忽略，不会上传到 GitHub。
-4. 启动后可打开 `http://127.0.0.1:8000/api/ai/status` 检查 `configured` 是否为 `true`；该接口不会显示密钥。
+| 班级 | 团支书账号 | 初始密码 | 学生邀请码 |
+|---|---|---|---|
+| 23级计算机科学与技术1班 | secretary1 | 123456 | JSJ23-1 |
+| 23级软件工程1班 | secretary2 | 123456 | RJGC23-1 |
+| 23级数据科学与大数据技术1班 | secretary3 | 123456 | SJ23-1 |
 
-学生问答尚未接本地知识库，因此页面会提示回答只供测试参考。会议文字稿会在后端隐藏常见的姓名、学号、手机号和身份证号后再发给 DeepSeek，但使用者仍应避免提交敏感或涉密内容。
+团支书直接登录。学生在登录页选择“使用邀请码注册”。正式使用前必须修改初始密码。
 
-## 检查项目
+## 本地数据
 
-前端类型检查和构建：
+所有本地数据位于：
+
+```text
+backend/data/
+```
+
+其中包括SQLite数据库、后续附件和知识索引。该目录不会上传GitHub。
+
+备份方法：
+
+1. 关闭FastAPI。
+2. 复制整个 `backend/data` 目录到安全位置。
+
+恢复时关闭FastAPI，再用备份目录覆盖即可。
+
+## 检查第一阶段
+
+后端测试：
+
+```powershell
+cd backend
+.\.venv\Scripts\Activate.ps1
+pytest -q
+```
+
+前端检查：
 
 ```powershell
 cd frontend
@@ -86,38 +117,24 @@ npm run type-check
 npm run build
 ```
 
-后端测试（需要先激活后端虚拟环境）：
+第一阶段验收包括：
 
-```powershell
-cd backend
-pytest
-```
+- 首次启动自动建立SQLite数据库。
+- 团支书可以登录。
+- 学生可以使用班级邀请码注册。
+- 登录状态可在刷新后保持。
+- 无令牌请求被后端拒绝。
+- 学生不能读取团支书专用的班级邀请码接口。
+- 数据库和本地数据目录不会提交GitHub。
 
-## 后续技术方向
+## 后续阶段
 
-- 前端：Vue
-- 后端：FastAPI
-- Agent：LangGraph
-- 数据库：待确定
-- RAG：本地知识库
-- 多模态：音频和视频解析
-- 飞书：机器人通知
+1. 首页ChatGPT式流式聊天。
+2. 通知管理。
+3. 信息收集。
+4. 会议音视频转写和总结。
+5. Small-to-Big文档解析。
+6. Chroma、BM25、RRF和Rerank。
+7. RAGAS测评。
 
-数据库和各项 AI 技术会在实际开发对应功能时再确定和接入，不提前增加复杂架构。
-
-## Render 在线部署
-
-仓库根目录的 `render.yaml` 会创建两个服务：
-
-- `league-secretary-ai-web`：Vue 静态网站。
-- `league-secretary-ai-api`：FastAPI 后端服务。
-
-在 Render 控制台选择 **New → Blueprint**，连接本仓库并应用 Blueprint。部署完成后打开：
-
-```text
-https://league-secretary-ai-web.onrender.com
-```
-
-首次同步时，Render 会要求填写 `DEEPSEEK_API_KEY`。如果没有出现输入框，可进入 `league-secretary-ai-api` 服务的 **Environment** 页面，新增同名 Secret，然后保存并重新部署。不要把真实密钥写进 `render.yaml`。
-
-如果 Render 提示服务名称已被占用，需要同步修改 `render.yaml` 中的服务名称、`FRONTEND_ORIGIN` 和 `VITE_API_BASE_URL`，然后重新部署。
+每个阶段单独验收后再开始下一阶段，不进行Render或其他线上部署。

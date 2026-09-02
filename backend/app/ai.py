@@ -6,6 +6,7 @@ from typing import Any, Literal
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, ValidationError
+from app.config import settings
 
 
 router = APIRouter(prefix="/api/ai", tags=["AI"])
@@ -52,9 +53,9 @@ class DeepSeekError(Exception):
 
 class DeepSeekClient:
     def __init__(self) -> None:
-        self.api_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
-        self.base_url = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com").rstrip("/")
-        self.model = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash").strip()
+        self.api_key = settings.deepseek_api_key
+        self.base_url = settings.deepseek_base_url
+        self.model = settings.deepseek_model
 
     async def complete(self, messages: list[dict[str, str]], *, json_output: bool = False) -> str:
         if not self.api_key:
@@ -85,7 +86,6 @@ class DeepSeekClient:
         if not isinstance(content, str) or not content.strip():
             raise DeepSeekError("DeepSeek 返回了空内容，请稍后重试")
         return content.strip()
-
 
 def get_deepseek_client() -> DeepSeekClient:
     return DeepSeekClient()

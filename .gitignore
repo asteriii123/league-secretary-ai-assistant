@@ -8,10 +8,11 @@ backend/.venv/
 backend/__pycache__/
 backend/**/*.pyc
 backend/.env
+backend/data/
+backend/.pytest_cache/
 
 # Editors and operating systems
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
-
