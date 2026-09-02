@@ -10,7 +10,7 @@
 - 本地目录保存附件、会议文件和知识资料。
 - Chroma保存知识小块向量，BM25提供全文检索。
 - DeepSeek API用于聊天和会议总结。
-- 魔搭API用于Embedding和Rerank。
+- 本地 `BAAI/bge-small-zh-v1.5` 用于Embedding，团务资料不发送第三方；魔搭Token仅预留给Rerank。
 - faster-whisper用于本地音视频转写。
 
 DeepSeek和魔搭仍需联网，其Token只保存在本地 `.env`，不得提交GitHub。
@@ -61,7 +61,7 @@ backend/data/
 ## 4. Small-to-Big RAG链路
 
 ```text
-Office转PDF → Docling/OCR解析 → 父子分块 → BGE-M3 Embedding
+Office转PDF → Docling/OCR解析 → 父子分块 → 本地BGE Embedding
 → Chroma向量top-50 + BM25全文top-50 → RRF融合top-20
 → BGE Rerank → top-3小块回溯父块 → DeepSeek引用回答
 ```
@@ -114,4 +114,4 @@ Office转PDF → Docling/OCR解析 → 父子分块 → BGE-M3 Embedding
 
 第九阶段采用RAGAS 0.4.3现代指标接口。`backend/evaluation/gold_dataset.json` 固定包含10道事实题、8道流程或材料题、5道跨段落题、4道相似政策辨析题和3道知识库无答案题。模板问题已经建立，但标准答案必须由使用者根据实际上传的正式资料人工填写，完成后将对应 `ready` 改为 `true`；工具不得用AI伪造金标。
 
-测评器对比“仅向量小块top-3”“Small-to-Big仅向量top-3”“完整混合检索与Rerank top-3”“完整混合检索与Rerank top-5”四种配置，使用DeepSeek作为RAG回答与RAGAS裁判模型，使用魔搭BGE-M3作为答案相关性计算所需Embedding。输出保存在 `backend/data/evaluations`，包括逐题JSON、UTF-8 CSV和Markdown汇总报告，并自动判断完整方案是否在四项指标上均优于两个基线、目标阈值是否通过、无答案题是否伪造引用，以及top-3/top-5的建议。该结论只写入报告，不自动修改系统配置。
+测评器对比“仅向量小块top-3”“Small-to-Big仅向量top-3”“完整混合检索与Rerank top-3”“完整混合检索与Rerank top-5”四种配置，使用DeepSeek作为RAG回答与RAGAS裁判模型，使用同一个本地BGE模型计算答案相关性。输出保存在 `backend/data/evaluations`，包括逐题JSON、UTF-8 CSV和Markdown汇总报告，并自动判断完整方案是否在四项指标上均优于两个基线、目标阈值是否通过、无答案题是否伪造引用，以及top-3/top-5的建议。该结论只写入报告，不自动修改系统配置。

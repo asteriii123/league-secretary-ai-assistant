@@ -1,5 +1,6 @@
 """知识库检索：Embedding、混合召回、Rerank 与父块回溯。"""
 import json
+import hashlib
 import time
 from datetime import datetime
 from pathlib import Path
@@ -29,7 +30,7 @@ class ModelScopeEmbeddingClient:
                 response = httpx.post(
                     f"{settings.modelscope_base_url}/embeddings",
                     headers={"Authorization": f"Bearer {settings.modelscope_api_token}"},
-                    json={"model": settings.embedding_model, "input": texts}, timeout=120,
+                    json={"model": settings.embedding_model, "input": texts, "encoding_format": "float"}, timeout=120,
                 )
                 response.raise_for_status()
                 items = sorted(response.json()["data"], key=lambda item: item.get("index", 0))
@@ -42,6 +43,39 @@ class ModelScopeEmbeddingClient:
                 if attempt + 1 < settings.embedding_retries:
                     time.sleep(1.5 * (attempt + 1))
         raise RetrievalError("魔搭Embedding调用失败，请检查Token、模型名和网络") from last_error
+
+
+class LocalEmbeddingClient:
+    _model = None
+
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        try:
+            if LocalEmbeddingClient._model is None:
+                from sentence_transformers import SentenceTransformer
+                LocalEmbeddingClient._model = SentenceTransformer(
+                    settings.embedding_model,
+                    device=settings.embedding_device,
+                    cache_folder=str(settings.models_dir),
+                )
+            vectors = LocalEmbeddingClient._model.encode(
+                texts,
+                batch_size=max(1, settings.embedding_batch_size),
+                normalize_embeddings=True,
+                show_progress_bar=False,
+            )
+            return vectors.tolist()
+        except ImportError as exc:
+            raise RetrievalError("尚未安装本地Embedding依赖，请执行pip install -r requirements.txt") from exc
+        except Exception as exc:
+            raise RetrievalError("本地Embedding运行失败，请检查模型下载、磁盘空间和网络") from exc
+
+
+def get_embedding_client():
+    if settings.embedding_provider == "local":
+        return LocalEmbeddingClient()
+    if settings.embedding_provider == "modelscope":
+        return ModelScopeEmbeddingClient()
+    raise RetrievalError("EMBEDDING_PROVIDER只支持local或modelscope")
 
 
 class ModelScopeRerankClient:
@@ -87,7 +121,9 @@ def get_collection():
     try:
         import chromadb
         client = chromadb.PersistentClient(path=str(settings.chroma_dir))
-        return client.get_or_create_collection("knowledge_small_chunks", metadata={"hnsw:space": "cosine"})
+        identity = f"{settings.embedding_provider}:{settings.embedding_model}".encode("utf-8")
+        collection_name = f"knowledge_small_chunks_{hashlib.sha1(identity).hexdigest()[:10]}"
+        return client.get_or_create_collection(collection_name, metadata={"hnsw:space": "cosine"})
     except Exception as exc:
         raise RetrievalError("Chroma本地向量库初始化失败") from exc
 
@@ -120,7 +156,7 @@ def rebuild_bm25(class_id: int) -> None:
 
 
 def index_document(document_id: int, embedder=None, collection=None) -> None:
-    embedder = embedder or ModelScopeEmbeddingClient()
+    embedder = embedder or get_embedding_client()
     with SessionLocal() as db:
         document = db.get(KnowledgeDocument, document_id)
         if not document or document.status != "done":
@@ -182,7 +218,7 @@ def set_document_enabled(document_id: int, class_id: int, enabled: bool, collect
 
 def vector_search(query: str, class_id: int, top_k: int | None = None, embedder=None, collection=None) -> list[dict]:
     top_k = top_k or settings.rag_recall_top_k
-    vector = (embedder or ModelScopeEmbeddingClient()).embed([query])[0]
+    vector = (embedder or get_embedding_client()).embed([query])[0]
     result = (collection or get_collection()).query(
         query_embeddings=[vector], n_results=top_k,
         where={"$and": [{"class_id": {"$eq": class_id}}, {"enabled": {"$eq": True}}]},

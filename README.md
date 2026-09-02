@@ -12,7 +12,7 @@
 - 后端：FastAPI。
 - 本地数据库：SQLite、SQLAlchemy。
 - 登录：本地JWT、PBKDF2密码哈希。
-- AI：DeepSeek API流式多轮聊天，魔搭 `BAAI/bge-m3` Embedding；Rerank将在下一阶段接入。
+- AI：DeepSeek API流式多轮聊天，本地 `BAAI/bge-small-zh-v1.5` Embedding。
 
 ## 第二阶段聊天功能
 
@@ -76,17 +76,19 @@ winget install --id UB-Mannheim.TesseractOCR --source winget
 
 ## 第七阶段混合召回
 
-- 解析完成的小块以每批16条调用魔搭 `BAAI/bge-m3` Embedding，失败最多重试3次。
+- 解析完成的小块由本机 `BAAI/bge-small-zh-v1.5` 生成Embedding，资料不会发送给第三方；模型首次使用时下载到 `backend/data/models`。
 - 向量保存在 `backend/data/chroma`，Jieba分词后的BM25索引保存在 `backend/data/indexes`。
 - 查询时Chroma与BM25各召回top-50，以RRF `k=60`融合、去重并保留top-20。
 - 所有结果按当前班级和资料启用状态过滤；停用或删除资料会同步更新两路索引。
 - 知识资料页面提供调试框，可分别查看向量、BM25和RRF排名。本阶段只返回候选小块，不做Rerank或AI回答。
 
-使用前在 `backend/.env` 填写：
+本地Embedding配置：
 
 ```text
-MODELSCOPE_API_TOKEN=你的魔搭访问令牌
-MODELSCOPE_EMBEDDING_MODEL=BAAI/bge-m3
+EMBEDDING_PROVIDER=local
+EMBEDDING_MODEL=BAAI/bge-small-zh-v1.5
+EMBEDDING_DEVICE=cpu
+LOCAL_MODEL_CACHE_DIR=./data/models
 ```
 
 ## 第八阶段Rerank与引用回答
@@ -172,7 +174,7 @@ Copy-Item .env.example .env
 ```text
 JWT_SECRET=换成一段仅自己知道的随机长文本
 DEEPSEEK_API_KEY=你的DeepSeek密钥
-MODELSCOPE_API_TOKEN=你的魔搭访问令牌
+MODELSCOPE_API_TOKEN=你的魔搭访问令牌（当前仅预留给Rerank）
 ```
 
 真实密钥不能提交GitHub。`backend/.env`已加入Git忽略。

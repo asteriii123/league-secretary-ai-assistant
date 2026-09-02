@@ -105,19 +105,30 @@ class RagasScorer:
     """按需导入RAGAS，保证日常启动不依赖测评环境。"""
 
     def __init__(self) -> None:
-        if not settings.deepseek_api_key or not settings.modelscope_api_token:
-            raise EvaluationError("运行RAGAS需要DEEPSEEK_API_KEY和MODELSCOPE_API_TOKEN")
+        if not settings.deepseek_api_key:
+            raise EvaluationError("运行RAGAS需要DEEPSEEK_API_KEY")
         try:
             from openai import AsyncOpenAI
+            from ragas.embeddings import HuggingFaceEmbeddings
             from ragas.embeddings.base import embedding_factory
             from ragas.llms import llm_factory
             from ragas.metrics.collections import AnswerRelevancy, ContextPrecisionWithReference, ContextRecall, Faithfulness
         except ImportError as exc:
             raise EvaluationError("尚未安装测评依赖，请执行 pip install -r requirements-eval.txt") from exc
         llm_client = AsyncOpenAI(api_key=settings.deepseek_api_key, base_url=settings.deepseek_base_url)
-        embedding_client = AsyncOpenAI(api_key=settings.modelscope_api_token, base_url=settings.modelscope_base_url)
         llm = llm_factory(settings.deepseek_model, client=llm_client)
-        embeddings = embedding_factory("openai", model=settings.embedding_model, client=embedding_client)
+        if settings.embedding_provider == "local":
+            embeddings = HuggingFaceEmbeddings(
+                model=settings.embedding_model,
+                device=settings.embedding_device,
+                batch_size=settings.embedding_batch_size,
+                cache_folder=str(settings.models_dir),
+            )
+        else:
+            if not settings.modelscope_api_token:
+                raise EvaluationError("使用魔搭Embedding运行RAGAS需要MODELSCOPE_API_TOKEN")
+            embedding_client = AsyncOpenAI(api_key=settings.modelscope_api_token, base_url=settings.modelscope_base_url)
+            embeddings = embedding_factory("openai", model=settings.embedding_model, client=embedding_client)
         self.metrics = {
             "faithfulness": Faithfulness(llm=llm),
             "answer_relevancy": AnswerRelevancy(llm=llm, embeddings=embeddings),
