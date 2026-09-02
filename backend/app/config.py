@@ -25,6 +25,9 @@ class Settings:
     rerank_model: str = os.getenv("MODELSCOPE_RERANK_MODEL", "BAAI/bge-reranker-v2-m3")
     rag_enabled: bool = os.getenv("RAG_ENABLED", "true").lower() == "true"
     whisper_enabled: bool = os.getenv("WHISPER_ENABLED", "true").lower() == "true"
+    whisper_model: str = os.getenv("WHISPER_MODEL", "small")
+    whisper_device: str = os.getenv("WHISPER_DEVICE", "cpu")
+    whisper_compute_type: str = os.getenv("WHISPER_COMPUTE_TYPE", "int8")
     rag_final_top_k: int = int(os.getenv("RAG_FINAL_TOP_K", "3"))
 
     @property

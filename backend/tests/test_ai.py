@@ -33,6 +33,12 @@ def teardown_function() -> None:
     app.dependency_overrides.clear()
 
 
+def secretary_headers() -> dict[str, str]:
+    response = client.post("/api/auth/login", json={"username": "secretary1", "password": "123456"})
+    assert response.status_code == 200
+    return {"Authorization": f"Bearer {response.json()['access_token']}"}
+
+
 def test_student_qa_is_marked_as_unverified() -> None:
     response = client.post("/api/ai/student-qa", json={"question": "入党申请书应该怎么写？"})
     assert response.status_code == 200
@@ -44,6 +50,7 @@ def test_student_qa_is_marked_as_unverified() -> None:
 def test_meeting_summary_returns_structured_result() -> None:
     response = client.post(
         "/api/ai/meeting-summary",
+        headers=secretary_headers(),
         json={"meeting_type": "主题团日", "transcript": "今天讨论九月主题团日，决定周五前由团支书完成材料收集。"},
     )
     assert response.status_code == 200
@@ -62,5 +69,5 @@ def test_sensitive_text_is_redacted() -> None:
 
 
 def test_rejects_short_transcript() -> None:
-    response = client.post("/api/ai/meeting-summary", json={"meeting_type": "团课", "transcript": "内容太短"})
+    response = client.post("/api/ai/meeting-summary", headers=secretary_headers(), json={"meeting_type": "团课", "transcript": "内容太短"})
     assert response.status_code == 422

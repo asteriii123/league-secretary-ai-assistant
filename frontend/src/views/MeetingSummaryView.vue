@@ -1,67 +1,40 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { ArrowLeft, Lock, Microphone, Warning } from '@element-plus/icons-vue'
+import { onMounted, ref } from 'vue'
+import { ArrowLeft, Delete, DocumentChecked, Lock, Microphone, Plus, UploadFilled, Warning } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import AppShell from '@/components/AppShell.vue'
 import { getApiErrorMessage, summarizeMeeting, type MeetingSummary } from '@/api/ai'
+import { createMeetingRecord, deleteMeetingRecord, fetchMeetingRecords, summaryToPayload, transcribeMeeting, updateMeetingRecord, type MeetingRecord } from '@/api/meetings'
 
-const router = useRouter()
-const meetingType = ref('主题团日')
-const transcript = ref('')
-const loading = ref(false)
-const errorMessage = ref('')
-const result = ref<MeetingSummary | null>(null)
-
-async function submitTranscript() {
-  const value = transcript.value.trim()
-  if (value.length < 20 || loading.value) return
-  loading.value = true
-  errorMessage.value = ''
-  result.value = null
-  try {
-    result.value = await summarizeMeeting(meetingType.value, value)
-  } catch (error) {
-    errorMessage.value = getApiErrorMessage(error)
-  } finally {
-    loading.value = false
-  }
-}
+const router = useRouter(); const inputMode = ref<'text' | 'media'>('text'); const meetingType = ref('主题团日'); const transcript = ref(''); const mediaFile = ref<File>(); const uploadId = ref<string>(); const sourceName = ref<string>(); const transcribing = ref(false); const summarizing = ref(false); const saving = ref(false); const errorMessage = ref(''); const result = ref<MeetingSummary | null>(null); const records = ref<MeetingRecord[]>([]); const editingRecordId = ref<number>()
+async function loadRecords() { try { records.value = await fetchMeetingRecords() } catch (error) { errorMessage.value = getApiErrorMessage(error) } }
+async function transcribe() { if (!mediaFile.value) return; transcribing.value = true; errorMessage.value = ''; result.value = null; try { const data = await transcribeMeeting(mediaFile.value); transcript.value = data.transcript; uploadId.value = data.upload_id; sourceName.value = data.source_name } catch (error) { errorMessage.value = getApiErrorMessage(error) } finally { transcribing.value = false } }
+async function generate() { if (transcript.value.trim().length < 20) return; summarizing.value = true; errorMessage.value = ''; result.value = null; editingRecordId.value = undefined; try { result.value = await summarizeMeeting(meetingType.value, transcript.value.trim()) } catch (error) { errorMessage.value = getApiErrorMessage(error) } finally { summarizing.value = false } }
+function addListItem(key: 'key_points' | 'decisions') { result.value?.[key].push('') }
+function removeListItem(key: 'key_points' | 'decisions', index: number) { result.value?.[key].splice(index, 1) }
+function addAction() { result.value?.action_items.push({ task: '', owner: '未指定', deadline: '未指定' }) }
+async function save() { if (!result.value) return; saving.value = true; errorMessage.value = ''; try { const payload = summaryToPayload(result.value, transcript.value, uploadId.value, sourceName.value); const saved = editingRecordId.value ? await updateMeetingRecord(editingRecordId.value, payload) : await createMeetingRecord(payload); await loadRecords(); uploadId.value = undefined; editingRecordId.value = saved.id; alert('会议纪要已保存到本地') } catch (error) { errorMessage.value = getApiErrorMessage(error) } finally { saving.value = false } }
+function openRecord(record: MeetingRecord) { editingRecordId.value = record.id; meetingType.value = record.meeting_type; transcript.value = record.transcript; sourceName.value = record.source_name; uploadId.value = undefined; result.value = { title: record.title, meeting_type: record.meeting_type, summary: record.summary, key_points: [...record.key_points], decisions: [...record.decisions], action_items: record.action_items.map((item) => ({ ...item })), requires_manual_review: true, redacted_sensitive_data: false }; window.scrollTo({ top: 0, behavior: 'smooth' }) }
+async function removeRecord(record: MeetingRecord) { if (!confirm(`确定删除“${record.title}”吗？`)) return; await deleteMeetingRecord(record.id); if (editingRecordId.value === record.id) { editingRecordId.value = undefined; result.value = null }; await loadRecords() }
+onMounted(loadRecords)
 </script>
 
 <template>
-  <AppShell role-label="团支书端" active-label="会议内容总结">
-    <button class="back-link" type="button" @click="router.push('/secretary')"><ArrowLeft /> 返回团支书工作台</button>
-    <section class="tool-heading">
-      <span class="module-icon green"><Microphone /></span>
-      <div><p class="eyebrow">DeepSeek 测试功能</p><h1>会议内容总结</h1><p>粘贴已经转写好的会议文字稿，生成结构化会议纪要。</p></div>
+  <AppShell role-label="团支书端" active-label="会议助手">
+    <button class="back-link" type="button" @click="router.push('/secretary')"><ArrowLeft />返回团支书工作台</button>
+    <section class="tool-heading"><span class="module-icon green"><Microphone /></span><div><p class="eyebrow">本地转写 · DeepSeek整理</p><h1>会议助手</h1><p>导入文字、音频或视频，人工确认后保存结构化会议纪要。</p></div></section>
+    <div class="privacy-note"><Lock /><span>文字稿会先隐藏明确标注的姓名、学号、手机号和身份证号，再发送到DeepSeek。原始文件和纪要保存在本机。</span></div>
+    <p v-if="errorMessage" class="error-message" role="alert">{{ errorMessage }}</p>
+    <section class="ai-form-card meeting-input-card">
+      <div class="mode-tabs" role="tablist"><button :class="{ active: inputMode === 'text' }" type="button" @click="inputMode = 'text'">粘贴文字稿</button><button :class="{ active: inputMode === 'media' }" type="button" @click="inputMode = 'media'">上传音频/视频</button></div>
+      <label for="meeting-type">会议类型</label><select id="meeting-type" v-model="meetingType"><option>主题团日</option><option>团课</option><option>支部会议</option><option>其他</option></select>
+      <div v-if="inputMode === 'media'" class="media-upload"><UploadFilled /><div><strong>选择本地音频或视频</strong><p>支持MP3、WAV、M4A、MP4、MOV等，最大500MB。</p></div><input type="file" accept="audio/*,video/*,.mkv" @change="mediaFile = ($event.target as HTMLInputElement).files?.[0]" /><button class="secondary-action" type="button" :disabled="!mediaFile || transcribing" @click="transcribe">{{ transcribing ? '本地转写中，请耐心等待…' : '开始转写' }}</button></div>
+      <label for="meeting-transcript">可编辑文字稿</label><textarea id="meeting-transcript" v-model.trim="transcript" maxlength="100000" rows="14" placeholder="粘贴文字稿，或上传音视频完成本地转写……"></textarea><div class="field-footer"><span>{{ sourceName ? `来源：${sourceName}` : '生成纪要前请检查并修正转写错误' }}</span><span>{{ transcript.length }}/100000</span></div>
+      <button class="primary-action" type="button" :disabled="transcript.trim().length < 20 || summarizing || transcribing" @click="generate">{{ summarizing ? 'DeepSeek正在整理…' : '生成结构化纪要' }}</button>
     </section>
 
-    <div class="privacy-note"><Lock /><span>文字稿会先隐藏常见的姓名、学号、手机号和身份证号，再发送到 DeepSeek。请仍然避免提交敏感或涉密内容。</span></div>
+    <section v-if="result" class="result-card editable-minutes" aria-live="polite"><div class="result-title"><div><p class="eyebrow">{{ editingRecordId ? '编辑已保存纪要' : 'AI生成结果 · 请人工核对' }}</p><input v-model.trim="result.title" aria-label="纪要标题" /></div><span>{{ result.meeting_type }}</span></div><label>会议摘要<textarea v-model.trim="result.summary" rows="4"></textarea></label><div class="result-columns"><div><div class="editable-list-title"><h3>主要内容</h3><button class="icon-action" aria-label="添加主要内容" @click="addListItem('key_points')"><Plus /></button></div><div v-for="(_, index) in result.key_points" :key="index" class="editable-list-row"><input v-model.trim="result.key_points[index]" /><button class="icon-action" aria-label="删除主要内容" @click="removeListItem('key_points', index)"><Delete /></button></div></div><div><div class="editable-list-title"><h3>会议决定</h3><button class="icon-action" aria-label="添加会议决定" @click="addListItem('decisions')"><Plus /></button></div><div v-for="(_, index) in result.decisions" :key="index" class="editable-list-row"><input v-model.trim="result.decisions[index]" /><button class="icon-action" aria-label="删除会议决定" @click="removeListItem('decisions', index)"><Delete /></button></div></div></div><div class="editable-list-title"><h3>待办事项</h3><button class="secondary-action" @click="addAction"><Plus />添加待办</button></div><div class="action-editor"><div v-for="(item, index) in result.action_items" :key="index"><input v-model.trim="item.task" placeholder="任务内容" /><input v-model.trim="item.owner" placeholder="负责人" /><input v-model.trim="item.deadline" placeholder="截止时间" /><button class="icon-action" aria-label="删除待办" @click="result.action_items.splice(index, 1)"><Delete /></button></div></div><div class="warning-note"><Warning /><span>AI结果可能有遗漏，保存即表示团支书已完成核对。<template v-if="result.redacted_sensitive_data"> 本次已隐藏部分敏感信息。</template></span></div><button class="primary-action save-minutes" :disabled="saving || !result.title || !result.summary" @click="save"><DocumentChecked />{{ saving ? '保存中…' : editingRecordId ? '保存修改' : '人工确认并保存' }}</button></section>
 
-    <section class="ai-form-card" :aria-busy="loading">
-      <label for="meeting-type">会议类型</label>
-      <select id="meeting-type" v-model="meetingType">
-        <option>主题团日</option><option>团课</option><option>支部会议</option><option>其他</option>
-      </select>
-      <label for="meeting-transcript">会议文字稿</label>
-      <textarea id="meeting-transcript" v-model.trim="transcript" maxlength="50000" rows="14" placeholder="请粘贴至少 20 个字的会议文字稿……"></textarea>
-      <div class="field-footer"><span>目前只支持文字稿，暂不支持直接上传音频或视频</span><span>{{ transcript.length }}/50000</span></div>
-      <button class="primary-action" type="button" :disabled="transcript.trim().length < 20 || loading" @click="submitTranscript">
-        {{ loading ? '正在整理会议内容…' : '生成会议纪要' }}
-      </button>
-      <p v-if="errorMessage" class="error-message" role="alert">{{ errorMessage }} 请检查 Render 密钥配置后重试。</p>
-    </section>
-
-    <section v-if="result" class="result-card" aria-live="polite">
-      <div class="result-title"><div><p class="eyebrow">生成结果</p><h2>{{ result.title }}</h2></div><span>{{ result.meeting_type }}</span></div>
-      <h3>会议摘要</h3><p class="answer-text">{{ result.summary }}</p>
-      <div class="result-columns">
-        <div><h3>要点</h3><ul><li v-for="item in result.key_points" :key="item">{{ item }}</li></ul></div>
-        <div><h3>决定</h3><ul><li v-for="item in result.decisions" :key="item">{{ item }}</li></ul></div>
-      </div>
-      <h3>待办事项</h3>
-      <div class="action-list"><div v-for="item in result.action_items" :key="`${item.task}-${item.owner}`"><strong>{{ item.task }}</strong><span>负责人：{{ item.owner }}</span><span>截止：{{ item.deadline }}</span></div></div>
-      <div class="warning-note"><Warning /><span>AI 结果可能有遗漏，请团支书人工核对后再正式使用。<template v-if="result.redacted_sensitive_data"> 本次已检测并隐藏部分敏感信息。</template></span></div>
-    </section>
+    <section class="saved-meetings"><div class="section-heading"><div><span class="eyebrow">SQLite本地保存</span><h2>历史会议纪要</h2></div><span>{{ records.length }}份</span></div><div class="saved-meeting-grid"><article v-for="record in records" :key="record.id"><span>{{ record.meeting_type }}</span><h3>{{ record.title }}</h3><p>{{ record.summary }}</p><small>{{ new Date(record.created_at).toLocaleString() }}<template v-if="record.source_name"> · {{ record.source_name }}</template></small><footer><button class="secondary-action" @click="openRecord(record)">查看与编辑</button><button class="danger-action" @click="removeRecord(record)"><Delete />删除</button></footer></article><p v-if="!records.length" class="empty-copy">还没有保存会议纪要。</p></div></section>
   </AppShell>
 </template>

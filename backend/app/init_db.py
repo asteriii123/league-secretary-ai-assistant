@@ -46,6 +46,33 @@ def apply_local_migrations() -> None:
                 connection.execute(text("UPDATE collection_tasks SET allow_modify = allow_update"))
             connection.execute(text("UPDATE collection_tasks SET updated_at = created_at WHERE updated_at IS NULL"))
 
+    inspector = inspect(engine)
+    if "meeting_records" not in inspector.get_table_names():
+        return
+    meeting_columns = {column["name"] for column in inspector.get_columns("meeting_records")}
+    meeting_statements: list[str] = []
+    if "summary" not in meeting_columns:
+        meeting_statements.append("ALTER TABLE meeting_records ADD COLUMN summary TEXT NOT NULL DEFAULT ''")
+    if "key_points_json" not in meeting_columns:
+        meeting_statements.append("ALTER TABLE meeting_records ADD COLUMN key_points_json TEXT NOT NULL DEFAULT '[]'")
+    if "decisions_json" not in meeting_columns:
+        meeting_statements.append("ALTER TABLE meeting_records ADD COLUMN decisions_json TEXT NOT NULL DEFAULT '[]'")
+    if "action_items_json" not in meeting_columns:
+        meeting_statements.append("ALTER TABLE meeting_records ADD COLUMN action_items_json TEXT NOT NULL DEFAULT '[]'")
+    if "source_path" not in meeting_columns:
+        meeting_statements.append("ALTER TABLE meeting_records ADD COLUMN source_path TEXT")
+    if "source_name" not in meeting_columns:
+        meeting_statements.append("ALTER TABLE meeting_records ADD COLUMN source_name VARCHAR(255)")
+    if "updated_at" not in meeting_columns:
+        meeting_statements.append("ALTER TABLE meeting_records ADD COLUMN updated_at DATETIME")
+    if meeting_statements:
+        with engine.begin() as connection:
+            for statement in meeting_statements:
+                connection.execute(text(statement))
+            if "summary_json" in meeting_columns:
+                connection.execute(text("UPDATE meeting_records SET summary = summary_json WHERE summary = ''"))
+            connection.execute(text("UPDATE meeting_records SET updated_at = created_at WHERE updated_at IS NULL"))
+
 
 def initialize_database() -> None:
     Base.metadata.create_all(bind=engine)

@@ -6,3 +6,5 @@ sqlalchemy==2.0.43
 PyJWT==2.10.1
 python-multipart==0.0.20
 python-dotenv==1.1.1
+faster-whisper==1.2.0
+requests==2.32.5

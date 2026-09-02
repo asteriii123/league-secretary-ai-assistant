@@ -7,7 +7,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, ValidationError
-from app.auth import get_current_user
+from app.auth import get_current_user, require_secretary
 from app.config import settings
 from app.models import User
 
@@ -30,7 +30,7 @@ class StudentAnswerResponse(BaseModel):
 
 class MeetingSummaryRequest(BaseModel):
     meeting_type: Literal["主题团日", "团课", "支部会议", "其他"]
-    transcript: str = Field(min_length=20, max_length=50000)
+    transcript: str = Field(min_length=20, max_length=100000)
 
 
 class ActionItem(BaseModel):
@@ -211,6 +211,7 @@ async def student_qa(
 @router.post("/meeting-summary", response_model=MeetingSummaryResponse)
 async def meeting_summary(
     request: MeetingSummaryRequest,
+    user: User = Depends(require_secretary),
     client: DeepSeekClient = Depends(get_deepseek_client),
 ) -> MeetingSummaryResponse:
     transcript, was_redacted = redact_sensitive_text(request.transcript.strip())

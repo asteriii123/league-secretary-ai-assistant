@@ -84,3 +84,23 @@ class CollectionSubmission(Base):
     attachment_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=now, onupdate=now)
+
+
+class MeetingRecord(Base):
+    __tablename__ = "meeting_records"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    class_id: Mapped[int] = mapped_column(ForeignKey("classes.id"), index=True)
+    author_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    meeting_type: Mapped[str] = mapped_column(String(30))
+    title: Mapped[str] = mapped_column(String(200))
+    transcript: Mapped[str] = mapped_column(Text)
+    summary: Mapped[str] = mapped_column(Text)
+    # Retained for compatibility with an earlier local prototype table.
+    summary_json: Mapped[str] = mapped_column(Text, default="{}")
+    key_points_json: Mapped[str] = mapped_column(Text, default="[]")
+    decisions_json: Mapped[str] = mapped_column(Text, default="[]")
+    action_items_json: Mapped[str] = mapped_column(Text, default="[]")
+    source_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=now, onupdate=now)
