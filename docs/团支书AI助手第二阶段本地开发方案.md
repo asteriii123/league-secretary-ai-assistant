@@ -101,7 +101,7 @@ Office转PDF → Docling/OCR解析 → 父子分块 → BGE-M3 Embedding
 | 6 | 文档解析与Small-to-Big | 已完成 |
 | 7 | Chroma、BM25和RRF | 已完成 |
 | 8 | Rerank、父块回溯和引用回答 | 已完成 |
-| 9 | RAGAS评测 | 未开始 |
+| 9 | RAGAS评测工具与30题模板 | 已完成（待人工填写金标并实测） |
 | 10 | 一键启动、备份和最终文档 | 未开始 |
 
 每个阶段完成后单独测试和提交Git，用户验收后再开始下一阶段，不执行任何线上部署。
@@ -111,3 +111,7 @@ Office转PDF → Docling/OCR解析 → 父子分块 → BGE-M3 Embedding
 每阶段至少执行后端测试、前端类型检查和前端生产构建。第八阶段需验证top-20候选小块经过Rerank后默认保留top-3、父块按 `parent_id` 回溯并去重、调试接口仅团支书可用、两端聊天按当前班级检索，以及回答引用和无资料提示符合约束。
 
 第八阶段新增团支书专用 `POST /api/rag/search/debug`，按顺序返回 `vector`、`bm25`、`rrf`、`rerank` 和 `parents` 五组结果。团支书和学生共用的 `POST /api/ai/chat/stream` 会先检索当前班级已启用资料，再将最终父块传给DeepSeek；SSE先发送资料元数据，再流式发送正文。知识库不可用时保留通用问答能力，并明确提示此次回答没有可靠本地资料。
+
+第九阶段采用RAGAS 0.4.3现代指标接口。`backend/evaluation/gold_dataset.json` 固定包含10道事实题、8道流程或材料题、5道跨段落题、4道相似政策辨析题和3道知识库无答案题。模板问题已经建立，但标准答案必须由使用者根据实际上传的正式资料人工填写，完成后将对应 `ready` 改为 `true`；工具不得用AI伪造金标。
+
+测评器对比“仅向量小块top-3”“Small-to-Big仅向量top-3”“完整混合检索与Rerank top-3”“完整混合检索与Rerank top-5”四种配置，使用DeepSeek作为RAG回答与RAGAS裁判模型，使用魔搭BGE-M3作为答案相关性计算所需Embedding。输出保存在 `backend/data/evaluations`，包括逐题JSON、UTF-8 CSV和Markdown汇总报告，并自动判断完整方案是否在四项指标上均优于两个基线、目标阈值是否通过、无答案题是否伪造引用，以及top-3/top-5的建议。该结论只写入报告，不自动修改系统配置。

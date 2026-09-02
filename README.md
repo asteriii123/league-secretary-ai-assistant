@@ -105,6 +105,52 @@ RAG_FINAL_TOP_K=3
 RAG_ENABLED=true
 ```
 
+## 第九阶段RAGAS离线测评
+
+测评不是日常启动必需功能。需要测评时，在后端虚拟环境额外安装：
+
+```powershell
+cd backend
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements-eval.txt
+```
+
+先打开 `backend/evaluation/gold_dataset.json`。30道题的分类和问题已经建立，请根据你实际上传的正式资料填写：
+
+```json
+{
+  "reference_answer": "根据正式资料人工整理的标准答案",
+  "reference_contexts": ["支持标准答案的原文段落"],
+  "ready": true
+}
+```
+
+不要让AI自动编造标准答案。只检查模板、不调用API：
+
+```powershell
+python -m evaluation.run_ragas --validate-only
+```
+
+填写少量题后可先试跑，避免一次消耗太多API调用：
+
+```powershell
+python -m evaluation.run_ragas --class-id 1 --limit 2
+```
+
+30题全部完成后运行正式测评：
+
+```powershell
+python -m evaluation.run_ragas --class-id 1
+```
+
+系统比较四种配置：两个top-3基线、完整top-3和完整top-5。结果写入 `backend/data/evaluations`：
+
+- JSON：完整逐题数据、汇总和自动结论。
+- CSV：便于Excel检查每题结果。
+- Markdown：四种方案得分、阈值、无答案检查和top-k建议。
+
+RAGAS、DeepSeek和魔搭会产生多次API调用。模板未全部ready时，正式测评会拒绝运行；`--validate-only`不会调用任何API。
+
 ## 第一次安装
 
 需要先安装Node.js和Python 3.11或更新版本。
@@ -230,10 +276,12 @@ npm run build
 - 信息收集支持动态表单、退回重交、附件校验和CSV导出。
 - 小块可写入Chroma与BM25，混合召回结果包含两路排名和RRF分数。
 - Rerank默认选择top-3小块，回溯父块后流式回答并显示文件、章节和页码引用。
+- RAGAS金标模板严格包含30题指定分类，未填写金标时不会运行正式测评。
+- 测评可重复输出JSON、CSV和Markdown，并比较三套检索方案及top-3/top-5。
 
 ## 后续阶段
 
-1. RAGAS测评。
+1. 根据实际知识资料人工填写30题金标并运行首份真实RAGAS报告。
 2. 一键启动、备份与最终文档整理。
 
 每个阶段单独验收后再开始下一阶段，不进行Render或其他线上部署。

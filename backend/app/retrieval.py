@@ -281,7 +281,7 @@ def resolve_parent_chunks(candidates: list[dict], class_id: int) -> list[dict]:
             "rank": len(output) + 1,
             "source_label": f"资料{len(output) + 1}",
             "matched_chunk_id": candidate["chunk_id"],
-            "rerank_score": candidate["rerank_score"],
+            "rerank_score": candidate.get("rerank_score", candidate.get("score", 0.0)),
         })
     return output
 
