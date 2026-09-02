@@ -4,6 +4,7 @@ import { Bell, ChatDotRound, Document, UploadFilled, Refresh } from '@element-pl
 import AppShell from '@/components/AppShell.vue'
 import { fetchWelcome } from '@/api/http'
 import { useAuthStore } from '@/stores/auth'
+import AiChatPanel from '@/components/AiChatPanel.vue'
 
 const authStore = useAuthStore()
 const backendMessage = ref('还没有连接后端')
@@ -70,5 +71,6 @@ async function checkBackend() {
         </component>
       </div>
     </section>
+    <AiChatPanel role="student" />
   </AppShell>
 </template>

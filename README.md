@@ -2,7 +2,7 @@
 
 这是只在当前Windows电脑运行的团务协作平台。项目仅有团支书端和学生端，不设置管理员端。
 
-第二阶段采用逐阶段开发。当前已完成第一阶段：本地SQLite数据库、真实账号登录、班级权限、本地数据目录和统一配置；聊天、通知、信息收集、会议转写和RAG将在后续阶段逐项开发。
+第二阶段采用逐阶段开发。当前已完成本地SQLite账号基础，以及团支书端和学生端首页的ChatGPT式流式聊天。通知、信息收集、会议转写和RAG将在后续阶段逐项开发。
 
 完整方案见 [docs/团支书AI助手第二阶段本地开发方案.md](docs/团支书AI助手第二阶段本地开发方案.md)。
 
@@ -12,7 +12,15 @@
 - 后端：FastAPI。
 - 本地数据库：SQLite、SQLAlchemy。
 - 登录：本地JWT、PBKDF2密码哈希。
-- AI：DeepSeek API，后续接入魔搭Embedding和Rerank。
+- AI：DeepSeek API流式多轮聊天，后续接入魔搭Embedding和Rerank。
+
+## 第二阶段聊天功能
+
+- 团支书端和学生端首页均有AI聊天区。
+- 支持当前页面内多轮对话、逐步输出、停止生成、清空和失败重试。
+- 刷新页面后聊天记录会清空，不写入SQLite。
+- 当前尚未接入本地知识库，页面会明确提示回答属于通用建议。
+- 聊天接口需要登录令牌，未登录请求会被拒绝。
 
 ## 第一次安装
 
@@ -54,6 +62,12 @@ npm install
 cd backend
 .\.venv\Scripts\Activate.ps1
 uvicorn app.main:app --reload --env-file .env
+```
+
+后端也会自动读取 `backend/.env`，因此使用下面的CMD命令同样可以启动：
+
+```cmd
+.venv\Scripts\python.exe -m uvicorn app.main:app --reload
 ```
 
 后端地址：
@@ -129,12 +143,11 @@ npm run build
 
 ## 后续阶段
 
-1. 首页ChatGPT式流式聊天。
-2. 通知管理。
-3. 信息收集。
-4. 会议音视频转写和总结。
-5. Small-to-Big文档解析。
-6. Chroma、BM25、RRF和Rerank。
-7. RAGAS测评。
+1. 通知管理。
+2. 信息收集。
+3. 会议音视频转写和总结。
+4. Small-to-Big文档解析。
+5. Chroma、BM25、RRF和Rerank。
+6. RAGAS测评。
 
 每个阶段单独验收后再开始下一阶段，不进行Render或其他线上部署。

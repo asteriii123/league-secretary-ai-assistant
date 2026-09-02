@@ -5,8 +5,11 @@ from typing import Any, Literal
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, ValidationError
+from app.auth import get_current_user
 from app.config import settings
+from app.models import User
 
 
 router = APIRouter(prefix="/api/ai", tags=["AI"])
@@ -87,6 +90,29 @@ class DeepSeekClient:
             raise DeepSeekError("DeepSeek 返回了空内容，请稍后重试")
         return content.strip()
 
+    async def stream(self, messages: list[dict[str, str]]):
+        if not self.api_key:
+            raise DeepSeekError("DEEPSEEK_API_KEY 尚未配置")
+        payload = {"model": self.model, "messages": messages, "temperature": 0.2, "max_tokens": 2000, "stream": True}
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=10.0)) as client:
+                async with client.stream("POST", f"{self.base_url}/chat/completions", headers={"Authorization": f"Bearer {self.api_key}"}, json=payload) as response:
+                    response.raise_for_status()
+                    async for line in response.aiter_lines():
+                        if not line.startswith("data: "):
+                            continue
+                        data = line[6:]
+                        if data == "[DONE]":
+                            break
+                        try:
+                            content = json.loads(data)["choices"][0]["delta"].get("content", "")
+                        except (json.JSONDecodeError, KeyError, IndexError, TypeError):
+                            continue
+                        if content:
+                            yield content
+        except httpx.HTTPError as exc:
+            raise DeepSeekError("DeepSeek 暂时无法完成请求，请检查密钥和网络") from exc
+
 def get_deepseek_client() -> DeepSeekClient:
     return DeepSeekClient()
 
@@ -107,6 +133,49 @@ def redact_sensitive_text(text: str) -> tuple[str, bool]:
 def ai_http_error(exc: DeepSeekError) -> HTTPException:
     status_code = 503 if "API_KEY" in str(exc) else 502
     return HTTPException(status_code=status_code, detail=str(exc))
+
+
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=8000)
+
+
+class ChatRequest(BaseModel):
+    question: str = Field(min_length=2, max_length=2000)
+    history: list[ChatMessage] = Field(default_factory=list, max_length=12)
+
+
+def sse(event: str, data: dict[str, Any]) -> str:
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+@router.post("/chat/stream")
+async def chat_stream(
+    request: ChatRequest,
+    user: User = Depends(get_current_user),
+    client: DeepSeekClient = Depends(get_deepseek_client),
+) -> StreamingResponse:
+    async def generate():
+        role_prompt = (
+            "协助团支书起草通知、整理工作计划、准备会议和解答团务常见问题。"
+            if user.role == "secretary"
+            else "帮助学生理解入团入党材料、团员义务和团务常见问题。"
+        )
+        system_prompt = (
+            f"你是高校团务AI助手，{role_prompt}"
+            "当前尚未接入本地知识库，不得虚构学校政策、文件名称、截止日期或引用来源；"
+            "涉及学校具体规定时，明确建议以学校正式文件或团支书通知为准。回答使用简洁、友善的中文。"
+        )
+        messages = [{"role": "system", "content": system_prompt}] + [item.model_dump() for item in request.history[-10:]] + [{"role": "user", "content": request.question.strip()}]
+        yield sse("status", {"stage": "generating", "message": "DeepSeek正在生成回答"})
+        try:
+            async for content in client.stream(messages):
+                yield sse("content", {"text": content})
+            yield sse("done", {"ok": True})
+        except DeepSeekError as exc:
+            yield sse("error", {"message": str(exc)})
+
+    return StreamingResponse(generate(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 @router.get("/status")
