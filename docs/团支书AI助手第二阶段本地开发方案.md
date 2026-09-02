@@ -13,7 +13,7 @@
 - 本地 `BAAI/bge-small-zh-v1.5` 用于Embedding，本地 `BAAI/bge-reranker-base` 用于Cross-Encoder重排，团务资料不发送第三方。
 - faster-whisper用于本地音视频转写。
 
-DeepSeek和魔搭仍需联网，其Token只保存在本地 `.env`，不得提交GitHub。
+只有 DeepSeek 需要联网，其 API Key 只保存在本地 `.env`，不得提交GitHub。Embedding 和 Rerank 均在本机运行。
 
 ## 2. 本地账号和数据目录
 
