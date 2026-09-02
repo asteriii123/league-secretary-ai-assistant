@@ -13,7 +13,7 @@ const connected = ref(false)
 
 const modules = [
   { title: '通知管理', description: '发布通知并查看学生阅读情况', icon: Bell, tone: 'coral', route: '/secretary/notices' },
-  { title: '信息收集', description: '创建个人信息和材料收集任务', icon: Document, tone: 'blue' },
+  { title: '信息收集', description: '创建个人信息和材料收集任务', icon: Document, tone: 'blue', route: '/secretary/collections' },
   { title: '会议助手', description: '粘贴会议文字稿并使用 DeepSeek 整理纪要', icon: Microphone, tone: 'green', route: '/secretary/meeting-summary' },
   { title: '知识资料', description: '未来管理本地团务知识文件', icon: FolderOpened, tone: 'purple' },
 ]

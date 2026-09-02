@@ -9,6 +9,7 @@ from app.ai import router as ai_router
 from app.init_db import initialize_database
 from app.routers.auth import router as auth_router
 from app.routers.notices import router as notices_router
+from app.routers.collections import router as collections_router
 
 
 @asynccontextmanager
@@ -40,6 +41,7 @@ app.add_middleware(
 app.include_router(ai_router)
 app.include_router(auth_router)
 app.include_router(notices_router)
+app.include_router(collections_router)
 
 
 @app.get("/", tags=["基础"])

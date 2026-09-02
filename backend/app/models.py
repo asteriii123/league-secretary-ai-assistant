@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -50,3 +50,37 @@ class NoticeRead(Base):
     notice_id: Mapped[int] = mapped_column(ForeignKey("notices.id"), index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     read_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class CollectionTask(Base):
+    __tablename__ = "collection_tasks"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    class_id: Mapped[int] = mapped_column(ForeignKey("classes.id"), index=True)
+    author_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    title: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str] = mapped_column(Text, default="")
+    fields_json: Mapped[str] = mapped_column(Text, default="[]")
+    status: Mapped[str] = mapped_column(String(20), default="draft", index=True)
+    deadline: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    attachment_required: Mapped[bool] = mapped_column(Boolean, default=False)
+    allow_modify: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Retained for compatibility with an earlier local prototype table.
+    requires_file: Mapped[bool] = mapped_column(Boolean, default=False)
+    allow_update: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=now, onupdate=now)
+
+
+class CollectionSubmission(Base):
+    __tablename__ = "collection_submissions"
+    __table_args__ = (UniqueConstraint("task_id", "student_id"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    task_id: Mapped[int] = mapped_column(ForeignKey("collection_tasks.id"), index=True)
+    student_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    answers_json: Mapped[str] = mapped_column(Text, default="{}")
+    status: Mapped[str] = mapped_column(String(20), default="draft", index=True)
+    return_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    attachment_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    attachment_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=now, onupdate=now)
