@@ -104,3 +104,37 @@ class MeetingRecord(Base):
     source_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=now, onupdate=now)
+
+
+class KnowledgeDocument(Base):
+    __tablename__ = "knowledge_documents"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    class_id: Mapped[int] = mapped_column(ForeignKey("classes.id"), index=True)
+    author_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    filename: Mapped[str] = mapped_column(String(255))
+    file_type: Mapped[str] = mapped_column(String(20), index=True)
+    file_hash: Mapped[str] = mapped_column(String(64), index=True)
+    stored_path: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    page_count: Mapped[int] = mapped_column(default=0)
+    parent_count: Mapped[int] = mapped_column(default=0)
+    small_count: Mapped[int] = mapped_column(default=0)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=now, onupdate=now)
+
+
+class KnowledgeChunk(Base):
+    __tablename__ = "knowledge_chunks"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    document_id: Mapped[int] = mapped_column(ForeignKey("knowledge_documents.id"), index=True)
+    parent_id: Mapped[int | None] = mapped_column(ForeignKey("knowledge_chunks.id"), nullable=True, index=True)
+    chunk_type: Mapped[str] = mapped_column(String(10), index=True)
+    content: Mapped[str] = mapped_column(Text)
+    heading: Mapped[str] = mapped_column(String(255), default="")
+    section_path: Mapped[str] = mapped_column(String(500), default="")
+    page: Mapped[int] = mapped_column(default=1)
+    char_count: Mapped[int] = mapped_column(default=0)
+    order_index: Mapped[int] = mapped_column(default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=now)

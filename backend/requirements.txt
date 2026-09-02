@@ -8,3 +8,9 @@ python-multipart==0.0.20
 python-dotenv==1.1.1
 faster-whisper==1.2.0
 requests==2.32.5
+# 知识资料解析（第六阶段）
+pymupdf
+pytesseract
+pillow
+# 可选：Docling结构化解析，安装体积较大；未安装时电子PDF自动回退到PyMuPDF逐页提取
+# docling

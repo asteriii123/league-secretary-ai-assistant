@@ -2,7 +2,7 @@
 
 这是只在当前Windows电脑运行的团务协作平台。项目仅有团支书端和学生端，不设置管理员端。
 
-第二阶段采用逐阶段开发。当前已完成本地SQLite账号基础、两端ChatGPT式流式聊天、通知管理、信息收集和会议助手。RAG将在后续阶段逐项开发。
+第二阶段采用逐阶段开发。当前已完成本地SQLite账号基础、两端ChatGPT式流式聊天、通知管理、信息收集、会议助手和知识资料解析分块。混合检索与RAG将在后续阶段逐项开发。
 
 完整方案见 [docs/团支书AI助手第二阶段本地开发方案.md](docs/团支书AI助手第二阶段本地开发方案.md)。
 
@@ -53,6 +53,26 @@ winget install --id Gyan.FFmpeg --source winget
 ```
 
 首次转写时会联网下载 `small` Whisper模型，后续识别在本机完成。
+
+## 第六阶段知识资料
+
+- 团支书可上传PDF、Word、PPT和TXT，单文件最大50MB。
+- Word和PPT通过LibreOffice Headless转PDF；电子PDF用Docling解析（未安装Docling时自动回退PyMuPDF逐页提取）；扫描PDF用Tesseract OCR；TXT直接读取。
+- 解析结果保留标题、段落、页码和章节路径，再按Small-to-Big切分为父子块。
+- 父块目标800～1500字（最大2000字）保存到SQLite；小块目标200～350字、重叠约50字并记录`parent_id`，小块仅用于后续检索，不直接交给DeepSeek。
+- 相同内容的文件通过SHA-256哈希去重，不会重复建立索引。
+- 解析失败会保留失败原因，可重新处理；文档可停用、删除。
+
+知识资料解析需要以下本地依赖：
+
+```powershell
+# LibreOffice用于Word、PPT转PDF
+winget install --id TheDocumentFoundation.LibreOffice --source winget
+# Tesseract OCR主程序（用于扫描PDF）
+winget install --id UB-Mannheim.TesseractOCR --source winget
+```
+
+中文OCR语言包 `chi_sim.traineddata`（winget默认不安装中文）需放到 `backend/data/tessdata/`，可从 tessdata_fast 仓库下载。后端Python依赖（PyMuPDF、pytesseract、Pillow）通过 `pip install -r requirements.txt` 安装；Docling为可选增强，体积较大，未安装时电子PDF自动回退PyMuPDF。
 
 ## 第一次安装
 
@@ -179,8 +199,8 @@ npm run build
 
 ## 后续阶段
 
-1. Small-to-Big文档解析。
-2. Chroma、BM25、RRF和Rerank。
+1. Chroma、BM25和RRF混合检索。
+2. Rerank、父块回溯和引用回答。
 3. RAGAS测评。
 
 每个阶段单独验收后再开始下一阶段，不进行Render或其他线上部署。

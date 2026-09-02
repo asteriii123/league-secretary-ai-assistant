@@ -7,6 +7,7 @@ import StudentQaView from '@/views/StudentQaView.vue'
 import MeetingSummaryView from '@/views/MeetingSummaryView.vue'
 import NoticesView from '@/views/NoticesView.vue'
 import CollectionsView from '@/views/CollectionsView.vue'
+import KnowledgeView from '@/views/KnowledgeView.vue'
 import { useAuthStore, type UserRole } from '@/stores/auth'
 
 const router = createRouter({
@@ -41,6 +42,7 @@ const router = createRouter({
     { path: '/student/notices', name: 'student-notices', component: NoticesView, meta: { role: 'student' } },
     { path: '/secretary/collections', name: 'secretary-collections', component: CollectionsView, meta: { role: 'secretary' } },
     { path: '/student/collections', name: 'student-collections', component: CollectionsView, meta: { role: 'student' } },
+    { path: '/secretary/knowledge', name: 'secretary-knowledge', component: KnowledgeView, meta: { role: 'secretary' } },
     { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFoundView },
   ],
 })

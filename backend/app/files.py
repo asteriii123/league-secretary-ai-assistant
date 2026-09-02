@@ -112,3 +112,53 @@ def delete_meeting_media(path: str | None) -> None:
     allowed_dir = (settings.uploads_dir / "meetings").resolve()
     if allowed_dir in target.parents:
         target.unlink(missing_ok=True)
+
+
+KNOWLEDGE_SUFFIXES = {".pdf", ".doc", ".docx", ".ppt", ".pptx", ".txt"}
+KNOWLEDGE_MIME_TYPES = {
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "text/plain",
+    "application/octet-stream",
+}
+MAX_KNOWLEDGE_FILE_SIZE = 50 * 1024 * 1024
+
+
+def knowledge_file_type(suffix: str) -> str:
+    if suffix in {".doc", ".docx"}:
+        return "word"
+    if suffix in {".ppt", ".pptx"}:
+        return "ppt"
+    return suffix.lstrip(".")
+
+
+def save_knowledge_file(upload: UploadFile) -> tuple[str, str, str]:
+    original_name = Path(upload.filename or "资料").name
+    suffix = Path(original_name).suffix.lower()
+    if suffix not in KNOWLEDGE_SUFFIXES or upload.content_type not in KNOWLEDGE_MIME_TYPES:
+        raise HTTPException(status_code=400, detail="知识资料仅支持PDF、Word、PPT和TXT")
+    target_dir = settings.uploads_dir / "knowledge"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    target = target_dir / f"{uuid4().hex}{suffix}"
+    size = 0
+    with target.open("wb") as output:
+        while chunk := upload.file.read(1024 * 1024):
+            size += len(chunk)
+            if size > MAX_KNOWLEDGE_FILE_SIZE:
+                output.close()
+                target.unlink(missing_ok=True)
+                raise HTTPException(status_code=413, detail="知识资料不能超过50MB")
+            output.write(chunk)
+    return str(target), original_name, knowledge_file_type(suffix)
+
+
+def delete_knowledge_file(path: str | None) -> None:
+    if not path:
+        return
+    target = Path(path).resolve()
+    allowed_dir = (settings.uploads_dir / "knowledge").resolve()
+    if allowed_dir in target.parents:
+        target.unlink(missing_ok=True)

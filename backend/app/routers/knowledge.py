@@ -1,0 +1,124 @@
+from pathlib import Path
+
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
+from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.auth import require_secretary
+from app.database import get_db
+from app.files import delete_knowledge_file, save_knowledge_file
+from app.knowledge import compute_file_hash, process_knowledge_document
+from app.models import KnowledgeChunk, KnowledgeDocument, User
+
+
+router = APIRouter(prefix="/api/knowledge", tags=["知识资料"])
+
+
+class EnabledPayload(BaseModel):
+    enabled: bool
+
+
+def owned_document(db: Session, document_id: int, user: User) -> KnowledgeDocument:
+    document = db.get(KnowledgeDocument, document_id)
+    if not document or document.class_id != user.class_id:
+        raise HTTPException(status_code=404, detail="知识资料不存在")
+    return document
+
+
+def serialize_document(document: KnowledgeDocument) -> dict:
+    return {
+        "id": document.id, "filename": document.filename, "file_type": document.file_type,
+        "status": document.status, "error_message": document.error_message,
+        "page_count": document.page_count, "parent_count": document.parent_count,
+        "small_count": document.small_count, "enabled": document.enabled,
+        "created_at": document.created_at.isoformat(), "updated_at": document.updated_at.isoformat(),
+    }
+
+
+@router.post("", status_code=201)
+def upload_document(
+    background: BackgroundTasks,
+    file: UploadFile = File(...),
+    user: User = Depends(require_secretary),
+    db: Session = Depends(get_db),
+) -> dict:
+    path, original_name, file_type = save_knowledge_file(file)
+    file_hash = compute_file_hash(Path(path))
+    duplicate = db.scalar(select(KnowledgeDocument).where(
+        KnowledgeDocument.class_id == user.class_id, KnowledgeDocument.file_hash == file_hash,
+    ))
+    if duplicate:
+        delete_knowledge_file(path)
+        raise HTTPException(status_code=409, detail="该文件已上传并建立索引，无需重复处理")
+    document = KnowledgeDocument(
+        class_id=user.class_id, author_id=user.id, filename=original_name,
+        file_type=file_type, file_hash=file_hash, stored_path=path, status="pending",
+    )
+    db.add(document)
+    db.commit()
+    db.refresh(document)
+    background.add_task(process_knowledge_document, document.id)
+    return serialize_document(document)
+
+
+@router.get("")
+def list_documents(user: User = Depends(require_secretary), db: Session = Depends(get_db)) -> list[dict]:
+    documents = db.scalars(select(KnowledgeDocument).where(KnowledgeDocument.class_id == user.class_id).order_by(KnowledgeDocument.created_at.desc())).all()
+    return [serialize_document(item) for item in documents]
+
+
+@router.get("/{document_id}")
+def get_document(document_id: int, user: User = Depends(require_secretary), db: Session = Depends(get_db)) -> dict:
+    document = owned_document(db, document_id, user)
+    chunks = db.scalars(select(KnowledgeChunk).where(KnowledgeChunk.document_id == document.id).order_by(KnowledgeChunk.order_index)).all()
+    parents = [item for item in chunks if item.chunk_type == "parent"]
+    smalls = [item for item in chunks if item.chunk_type == "small"]
+    smalls_by_parent: dict[int, list[dict]] = {}
+    for item in smalls:
+        smalls_by_parent.setdefault(item.parent_id, []).append({"id": item.id, "content": item.content, "char_count": item.char_count})
+    parent_payload = [
+        {
+            "id": item.id, "content": item.content, "heading": item.heading,
+            "section_path": item.section_path, "page": item.page, "char_count": item.char_count,
+            "smalls": smalls_by_parent.get(item.id, []),
+        }
+        for item in parents
+    ]
+    return {**serialize_document(document), "parents": parent_payload}
+
+
+@router.post("/{document_id}/retry")
+def retry_document(
+    document_id: int, background: BackgroundTasks,
+    user: User = Depends(require_secretary), db: Session = Depends(get_db),
+) -> dict:
+    document = owned_document(db, document_id, user)
+    if document.status == "processing":
+        raise HTTPException(status_code=409, detail="该资料正在解析中")
+    document.status = "pending"
+    document.error_message = None
+    db.commit()
+    db.refresh(document)
+    background.add_task(process_knowledge_document, document.id)
+    return serialize_document(document)
+
+
+@router.patch("/{document_id}/enabled")
+def toggle_document(document_id: int, payload: EnabledPayload, user: User = Depends(require_secretary), db: Session = Depends(get_db)) -> dict:
+    document = owned_document(db, document_id, user)
+    document.enabled = payload.enabled
+    db.commit()
+    db.refresh(document)
+    return serialize_document(document)
+
+
+@router.delete("/{document_id}", status_code=204)
+def delete_document(document_id: int, user: User = Depends(require_secretary), db: Session = Depends(get_db)) -> None:
+    document = owned_document(db, document_id, user)
+    delete_knowledge_file(document.stored_path)
+    chunks = db.scalars(select(KnowledgeChunk).where(KnowledgeChunk.document_id == document.id)).all()
+    for chunk in chunks:
+        db.delete(chunk)
+    db.delete(document)
+    db.commit()

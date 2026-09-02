@@ -98,7 +98,7 @@ Office转PDF → Docling/OCR解析 → 父子分块 → BGE-M3 Embedding
 | 3 | 通知管理 | 已完成 |
 | 4 | 信息收集 | 已完成 |
 | 5 | 会议文字稿与音视频转写 | 已完成 |
-| 6 | 文档解析与Small-to-Big | 未开始 |
+| 6 | 文档解析与Small-to-Big | 已完成 |
 | 7 | Chroma、BM25和RRF | 未开始 |
 | 8 | Rerank、父块回溯和引用回答 | 未开始 |
 | 9 | RAGAS评测 | 未开始 |

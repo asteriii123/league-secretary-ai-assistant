@@ -46,6 +46,10 @@ class Settings:
     def indexes_dir(self) -> Path:
         return self.data_dir / "indexes"
 
+    @property
+    def tessdata_dir(self) -> Path:
+        return Path(os.getenv("TESSDATA_DIR", self.data_dir / "tessdata"))
+
 
 settings = Settings()
 
@@ -60,6 +64,7 @@ def ensure_data_directories() -> None:
         settings.uploads_dir / "submissions",
         settings.uploads_dir / "meetings",
         settings.uploads_dir / "knowledge",
+        settings.tessdata_dir,
     ):
         path.mkdir(parents=True, exist_ok=True)
 
