@@ -1,6 +1,7 @@
 import json
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -9,6 +10,8 @@ from app.auth import require_secretary
 from app.database import get_db
 from app.files import delete_meeting_media, resolve_meeting_upload, save_meeting_media
 from app.models import MeetingRecord, User
+from app.meeting_agent import build_minutes_docx
+from app.config import settings
 from app.transcription import TranscriptionError, transcribe_media
 
 
@@ -101,4 +104,19 @@ def update_record(record_id: int, payload: MeetingPayload, user: User = Depends(
 @router.delete("/{record_id}", status_code=204)
 def delete_record(record_id: int, user: User = Depends(require_secretary), db: Session = Depends(get_db)) -> None:
     record = owned_record(db, record_id, user)
-    delete_meeting_media(record.source_path); db.delete(record); db.commit()
+    delete_meeting_media(record.source_path)
+    (settings.meeting_documents_dir / f"meeting-record-{record.id}.docx").unlink(missing_ok=True)
+    db.delete(record); db.commit()
+
+
+@router.get("/{record_id}/document")
+def download_record_document(record_id: int, user: User = Depends(require_secretary), db: Session = Depends(get_db)) -> FileResponse:
+    record = owned_record(db, record_id, user)
+    minutes = {
+        "title": record.title, "meeting_type": record.meeting_type, "summary": record.summary,
+        "key_points": json.loads(record.key_points_json), "decisions": json.loads(record.decisions_json),
+        "action_items": json.loads(record.action_items_json),
+    }
+    target = settings.meeting_documents_dir / f"meeting-record-{record.id}.docx"
+    build_minutes_docx(target, minutes, record.transcript)
+    return FileResponse(target, filename=f"{record.title}.docx", media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")

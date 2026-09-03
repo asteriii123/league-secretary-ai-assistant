@@ -19,6 +19,10 @@ export async function fetchMeetingRecords() { return (await http.get<MeetingReco
 export async function createMeetingRecord(payload: MeetingRecordPayload) { return (await http.post<MeetingRecord>('/api/meetings', payload)).data }
 export async function updateMeetingRecord(id: number, payload: MeetingRecordPayload) { return (await http.patch<MeetingRecord>(`/api/meetings/${id}`, payload)).data }
 export async function deleteMeetingRecord(id: number) { await http.delete(`/api/meetings/${id}`) }
+export async function downloadMeetingRecord(id: number, title: string) {
+  const response = await http.get(`/api/meetings/${id}/document`, { responseType: 'blob' })
+  const url = URL.createObjectURL(response.data); const anchor = document.createElement('a'); anchor.href = url; anchor.download = `${title}.docx`; anchor.click(); URL.revokeObjectURL(url)
+}
 export function summaryToPayload(summary: MeetingSummary, transcript: string, uploadId?: string, sourceName?: string): MeetingRecordPayload {
   return { meeting_type: summary.meeting_type, title: summary.title, transcript, summary: summary.summary, key_points: summary.key_points, decisions: summary.decisions, action_items: summary.action_items, upload_id: uploadId, source_name: sourceName }
 }

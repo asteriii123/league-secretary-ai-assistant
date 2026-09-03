@@ -2,7 +2,7 @@ from sqlalchemy import inspect, select, text
 
 from app.auth import hash_password
 from app.database import Base, SessionLocal, engine
-from app.models import ClassRoom, User
+from app.models import ClassRoom, MeetingJob, User
 
 
 DEMO_CLASSES = [
@@ -89,11 +89,21 @@ def apply_local_migrations() -> None:
             for statement in knowledge_statements:
                 connection.execute(text(statement))
 
+    inspector = inspect(engine)
+    if "meeting_jobs" in inspector.get_table_names():
+        job_columns = {column["name"] for column in inspector.get_columns("meeting_jobs")}
+        if "instruction" not in job_columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE meeting_jobs ADD COLUMN instruction TEXT NOT NULL DEFAULT '请整理为标准会议纪要'"))
+
 
 def initialize_database() -> None:
     Base.metadata.create_all(bind=engine)
     apply_local_migrations()
     with SessionLocal() as db:
+        db.query(MeetingJob).filter(MeetingJob.status.in_([
+            "queued", "transcribing", "filtering", "generating_minutes", "creating_document"
+        ])).update({"status": "failed", "error_message": "后端曾在处理期间停止，请点击重试"}, synchronize_session=False)
         for index, (name, invite_code) in enumerate(DEMO_CLASSES, start=1):
             classroom = db.scalar(select(ClassRoom).where(ClassRoom.name == name))
             if not classroom:

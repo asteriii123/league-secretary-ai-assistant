@@ -107,7 +107,8 @@ def test_embedding_index_bm25_and_rrf() -> None:
             document = db.get(KnowledgeDocument, document_id); document.enabled = False; db.commit()
         set_document_enabled(document_id, class_id, False, collection=collection)
         assert all(not value["metadata"]["enabled"] for value in collection.items.values())
-        assert bm25_search("团费缴纳", class_id) == []
+        remaining = bm25_search("团费缴纳", class_id)
+        assert all(item["document_id"] != document_id for item in remaining)
     finally:
         cleanup(document_id)
 

@@ -13,6 +13,8 @@ from app.routers.collections import router as collections_router
 from app.routers.meetings import router as meetings_router
 from app.routers.knowledge import router as knowledge_router
 from app.routers.rag import router as rag_router
+from app.routers.conversations import router as conversations_router
+from app.routers.meeting_agent import router as meeting_agent_router
 
 
 @asynccontextmanager
@@ -48,6 +50,8 @@ app.include_router(collections_router)
 app.include_router(meetings_router)
 app.include_router(knowledge_router)
 app.include_router(rag_router)
+app.include_router(conversations_router)
+app.include_router(meeting_agent_router)
 
 
 @app.get("/", tags=["基础"])

@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Bell, ChatDotRound, Document, FolderOpened, Microphone, Refresh } from '@element-plus/icons-vue'
+import { Bell, Document, FolderOpened, Refresh } from '@element-plus/icons-vue'
 import AppShell from '@/components/AppShell.vue'
 import { fetchWelcome } from '@/api/http'
 import { useAuthStore } from '@/stores/auth'
-import AiChatPanel from '@/components/AiChatPanel.vue'
 
 const authStore = useAuthStore()
 const backendMessage = ref('还没有连接后端')
@@ -14,7 +13,6 @@ const connected = ref(false)
 const modules = [
   { title: '通知管理', description: '发布通知并查看学生阅读情况', icon: Bell, tone: 'coral', route: '/secretary/notices' },
   { title: '信息收集', description: '创建个人信息和材料收集任务', icon: Document, tone: 'blue', route: '/secretary/collections' },
-  { title: '会议助手', description: '转写音视频并使用DeepSeek整理纪要', icon: Microphone, tone: 'green', route: '/secretary/meeting-summary' },
   { title: '知识资料', description: '上传并解析本地团务知识文件', icon: FolderOpened, tone: 'purple', route: '/secretary/knowledge' },
 ]
 
@@ -71,6 +69,5 @@ async function checkBackend() {
         </component>
       </div>
     </section>
-    <AiChatPanel role="secretary" />
   </AppShell>
 </template>

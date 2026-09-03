@@ -39,6 +39,7 @@ class Settings:
     rag_recall_top_k: int = int(os.getenv("RAG_RECALL_TOP_K", "50"))
     rag_rrf_k: int = int(os.getenv("RAG_RRF_K", "60"))
     rag_fusion_top_k: int = int(os.getenv("RAG_FUSION_TOP_K", "20"))
+    rag_min_rerank_score: float = float(os.getenv("RAG_MIN_RERANK_SCORE", "0.35"))
 
     @property
     def uploads_dir(self) -> Path:
@@ -64,6 +65,14 @@ class Settings:
     def tessdata_dir(self) -> Path:
         return Path(os.getenv("TESSDATA_DIR", self.data_dir / "tessdata"))
 
+    @property
+    def langgraph_checkpoint_path(self) -> Path:
+        return self.data_dir / "langgraph" / "checkpoints.sqlite"
+
+    @property
+    def meeting_documents_dir(self) -> Path:
+        return self.data_dir / "meeting_documents"
+
 
 settings = Settings()
 
@@ -80,6 +89,8 @@ def ensure_data_directories() -> None:
         settings.uploads_dir / "meetings",
         settings.uploads_dir / "knowledge",
         settings.tessdata_dir,
+        settings.langgraph_checkpoint_path.parent,
+        settings.meeting_documents_dir,
     ):
         path.mkdir(parents=True, exist_ok=True)
 

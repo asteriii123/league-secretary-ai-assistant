@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Bell, ChatDotRound, Document, UploadFilled, Refresh } from '@element-plus/icons-vue'
+import { Bell, Document, UploadFilled, Refresh } from '@element-plus/icons-vue'
 import AppShell from '@/components/AppShell.vue'
 import { fetchWelcome } from '@/api/http'
 import { useAuthStore } from '@/stores/auth'
-import AiChatPanel from '@/components/AiChatPanel.vue'
 
 const authStore = useAuthStore()
 const backendMessage = ref('还没有连接后端')
@@ -15,7 +14,6 @@ const modules = [
   { title: '本班通知', description: '查看团支书发布的最新通知', icon: Bell, tone: 'coral', route: '/student/notices' },
   { title: '待提交任务', description: '查看个人信息和材料收集任务', icon: Document, tone: 'blue', route: '/student/collections' },
   { title: '文件提交', description: '在信息收集任务中上传表格和证明材料', icon: UploadFilled, tone: 'green', route: '/student/collections' },
-  { title: 'AI 答疑', description: '使用 DeepSeek 测试团务常见问题问答', icon: ChatDotRound, tone: 'purple', route: '/student/ai-qa' },
 ]
 
 async function checkBackend() {
@@ -71,6 +69,5 @@ async function checkBackend() {
         </component>
       </div>
     </section>
-    <AiChatPanel role="student" />
   </AppShell>
 </template>

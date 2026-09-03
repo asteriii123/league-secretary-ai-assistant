@@ -3,8 +3,8 @@ import LoginView from '@/views/LoginView.vue'
 import SecretaryDashboardView from '@/views/SecretaryDashboardView.vue'
 import StudentDashboardView from '@/views/StudentDashboardView.vue'
 import NotFoundView from '@/views/NotFoundView.vue'
-import StudentQaView from '@/views/StudentQaView.vue'
-import MeetingSummaryView from '@/views/MeetingSummaryView.vue'
+import MeetingDocumentsView from '@/views/MeetingDocumentsView.vue'
+import AiCenterView from '@/views/AiCenterView.vue'
 import NoticesView from '@/views/NoticesView.vue'
 import CollectionsView from '@/views/CollectionsView.vue'
 import KnowledgeView from '@/views/KnowledgeView.vue'
@@ -28,14 +28,28 @@ const router = createRouter({
     },
     {
       path: '/student/ai-qa',
-      name: 'student-ai-qa',
-      component: StudentQaView,
+      redirect: '/student/ai',
+    },
+    {
+      path: '/student/ai',
+      name: 'student-ai',
+      component: AiCenterView,
       meta: { role: 'student' },
     },
     {
       path: '/secretary/meeting-summary',
-      name: 'meeting-summary',
-      component: MeetingSummaryView,
+      redirect: '/secretary/ai',
+    },
+    {
+      path: '/secretary/ai',
+      name: 'secretary-ai',
+      component: AiCenterView,
+      meta: { role: 'secretary' },
+    },
+    {
+      path: '/secretary/meeting-documents',
+      name: 'meeting-documents',
+      component: MeetingDocumentsView,
       meta: { role: 'secretary' },
     },
     { path: '/secretary/notices', name: 'secretary-notices', component: NoticesView, meta: { role: 'secretary' } },
