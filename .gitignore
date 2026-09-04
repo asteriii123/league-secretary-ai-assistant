@@ -1,10 +1,10 @@
-# Frontend
+# 前端依赖、构建产物和本地配置
 frontend/node_modules/
 frontend/dist/
 frontend/.env.local
 frontend/.vite/
 
-# Backend
+# 后端虚拟环境、密钥、缓存和本地业务数据
 backend/.venv/
 backend/__pycache__/
 backend/**/*.pyc
@@ -12,7 +12,7 @@ backend/.env
 backend/data/
 backend/.pytest_cache/
 
-# Editors and operating systems
+# 编辑器和操作系统生成文件
 .vscode/
 .idea/
 .DS_Store
