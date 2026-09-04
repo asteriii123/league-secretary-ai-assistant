@@ -22,6 +22,14 @@
 
 账号、附件、知识原文、向量索引和会议转写保存在本机；只有生成最终回答时会调用 DeepSeek API。
 
+## 目录导航
+
+| 目录 | 用途 | 详细说明 |
+| --- | --- | --- |
+| `backend` | FastAPI 接口、RAG、Agent、LLM、智能搜索和本地数据服务 | [后端目录说明](backend/README.md) |
+| `frontend` | Vue 3 页面、组件、路由、状态管理和 API 封装 | [前端目录说明](frontend/README.md) |
+| `docs` | 产品方案、技术设计、功能规格和 README 截图 | [文档目录说明](docs/README.md) |
+
 ## 核心功能
 
 | 能力 | 说明 |
