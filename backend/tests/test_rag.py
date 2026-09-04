@@ -10,7 +10,7 @@ def login(client: TestClient, username: str, password: str = "123456") -> str:
 
 
 def test_rag_debug_is_secretary_only_and_returns_full_pipeline(monkeypatch) -> None:
-    monkeypatch.setattr("app.routers.rag.retrieve_with_rerank", lambda query, class_id: {
+    monkeypatch.setattr("app.api.routers.rag.retrieve_with_rerank", lambda query, class_id: {
         "vector": [], "bm25": [], "rrf": [],
         "rerank": [{"chunk_id": 1, "rank": 1, "rerank_score": 0.9}],
         "parents": [{"parent_id": 2, "rank": 1, "source_label": "资料1"}],

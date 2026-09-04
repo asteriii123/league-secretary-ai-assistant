@@ -6,7 +6,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 
-BACKEND_DIR = Path(__file__).resolve().parents[1]
+BACKEND_DIR = Path(__file__).resolve().parents[2]
 load_dotenv(BACKEND_DIR / ".env")
 
 
@@ -19,6 +19,10 @@ class Settings:
     deepseek_api_key: str = os.getenv("DEEPSEEK_API_KEY", "").strip()
     deepseek_base_url: str = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com").rstrip("/")
     deepseek_model: str = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
+    tavily_api_key: str = os.getenv("TAVILY_API_KEY", "").strip()
+    web_search_timeout: float = float(os.getenv("WEB_SEARCH_TIMEOUT", "10"))
+    web_search_provider_results: int = int(os.getenv("WEB_SEARCH_PROVIDER_RESULTS", "5"))
+    web_search_max_results: int = int(os.getenv("WEB_SEARCH_MAX_RESULTS", "8"))
     modelscope_api_token: str = os.getenv("MODELSCOPE_API_TOKEN", "").strip()
     modelscope_base_url: str = os.getenv("MODELSCOPE_BASE_URL", "https://api-inference.modelscope.cn/v1").rstrip("/")
     embedding_provider: str = os.getenv("EMBEDDING_PROVIDER", "local").strip().lower()

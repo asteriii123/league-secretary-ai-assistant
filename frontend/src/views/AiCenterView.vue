@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import { ChatDotRound, Close, Delete, Document, FolderOpened, Menu, Plus, Promotion, RefreshRight, UploadFilled } from '@element-plus/icons-vue'
+import { ArrowUp, ChatDotRound, Close, Connection, Delete, Document, FolderOpened, Menu, Paperclip, Plus, RefreshRight, UploadFilled } from '@element-plus/icons-vue'
 import AppShell from '@/components/AppShell.vue'
 import MarkdownContent from '@/components/MarkdownContent.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -14,9 +14,24 @@ const auth = useAuthStore()
 const conversations = ref<Conversation[]>([]); const active = ref<Conversation>(); const messages = ref<ChatMessage[]>([])
 const jobs = ref<Record<number, MeetingJob>>({}); const question = ref(''); const loading = ref(false); const stage = ref(''); const error = ref('')
 const controller = ref<AbortController>(); const chatBody = ref<HTMLElement>(); const drawerOpen = ref(false)
+const webSearchEnabled = ref(false)
 const meetingFile = ref<File>(); let pollTimer: number | undefined
 const role = computed(() => auth.role as 'secretary' | 'student')
-const examples = computed(() => role.value === 'secretary' ? ['根据本班资料，团费应该如何缴纳？', '帮我查找主题团日的流程要求'] : ['入党申请书一般包含哪些内容？', '团员需要履行哪些义务？'])
+const groupedConversations = computed(() => {
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1)
+  const groups = [
+    { label: '今天', items: [] as Conversation[] },
+    { label: '昨天', items: [] as Conversation[] },
+    { label: '更早', items: [] as Conversation[] },
+  ]
+  for (const item of conversations.value) {
+    const updated = new Date(item.updated_at)
+    const target = updated >= today ? groups[0] : updated >= yesterday ? groups[1] : groups[2]
+    target!.items.push(item)
+  }
+  return groups.filter(group => group.items.length)
+})
 
 async function scrollLatest() { await nextTick(); chatBody.value?.scrollTo({ top: chatBody.value.scrollHeight, behavior: 'smooth' }) }
 async function loadConversations(selectId?: number) {
@@ -58,7 +73,7 @@ async function send(text = question.value) {
     const now = new Date().toISOString(); const answer: ChatMessage = { id: -Date.now(), role: 'assistant', content: '', status: 'streaming', sources: [], created_at: now }
     messages.value.push({ id: answer.id - 1, role: 'user', content: value, status: 'complete', sources: [], created_at: now }, answer)
     question.value = ''; loading.value = true; stage.value = '正在连接本地后端'; error.value = ''; controller.value = new AbortController(); scrollLatest()
-    const response = await streamQuestion(conversation.id, value, controller.value.signal)
+    const response = await streamQuestion(conversation.id, value, webSearchEnabled.value, controller.value.signal)
     if (!response.ok || !response.body) { const detail = await response.json().catch(() => ({})); throw new Error(detail.detail ?? '聊天请求失败') }
     const reader = response.body.getReader(); const decoder = new TextDecoder(); let buffer = ''
     while (true) { const chunk = await reader.read(); if (chunk.done) break; buffer += decoder.decode(chunk.value, { stream: true }); const blocks = buffer.split(/\r?\n\r?\n/); buffer = blocks.pop() ?? ''; blocks.forEach(item => handleEvent(item, answer)) }
@@ -101,7 +116,7 @@ onBeforeUnmount(() => { if (pollTimer) window.clearInterval(pollTimer); controll
       <aside :class="['conversation-sidebar', { open: drawerOpen }]">
         <header><strong>历史对话</strong><button class="icon-action mobile-only" aria-label="关闭历史对话" @click="drawerOpen = false"><Close /></button></header>
         <button class="primary-action" @click="newConversation"><Plus />新建对话</button>
-        <div class="conversation-list"><div v-for="item in conversations" :key="item.id" :class="['conversation-row', { active: active?.id === item.id }]"><button class="conversation-select" title="双击标题可重命名" @click="selectConversation(item)"><span><ChatDotRound /></span><div><strong @dblclick.stop="editConversation(item)">{{ item.title }}</strong><small>最近更新 {{ new Date(item.updated_at).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) }}</small></div></button><button class="conversation-delete" :aria-label="`删除对话：${item.title}`" @click="removeConversation(item)"><Delete /></button></div></div>
+        <div class="conversation-list"><section v-for="group in groupedConversations" :key="group.label" class="conversation-group"><h3>{{ group.label }}</h3><div v-for="item in group.items" :key="item.id" :class="['conversation-row', { active: active?.id === item.id }]"><button class="conversation-select" title="双击标题可重命名" @click="selectConversation(item)"><span><ChatDotRound /></span><div><strong @dblclick.stop="editConversation(item)">{{ item.title }}</strong><small>最近更新 {{ new Date(item.updated_at).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) }}</small></div></button><button class="conversation-delete" :aria-label="`删除对话：${item.title}`" @click="removeConversation(item)"><Delete /></button></div></section></div>
         <RouterLink v-if="role === 'secretary'" class="meeting-doc-link" to="/secretary/meeting-documents"><Document />会议文档</RouterLink>
       </aside>
       <button v-if="drawerOpen" class="drawer-backdrop" aria-label="关闭历史对话" @click="drawerOpen = false"></button>
@@ -115,7 +130,7 @@ onBeforeUnmount(() => { if (pollTimer) window.clearInterval(pollTimer); controll
           <article v-for="(message, messageIndex) in messages" :key="message.id" :class="['chat-message', message.role, { error: message.status === 'failed', 'has-meeting': message.role === 'assistant' && message.meeting_job_id }]">
             <span>{{ message.role === 'user' ? '你' : 'AI' }}</span><div>
               <p v-if="message.role === 'user'">{{ message.content }}</p><MarkdownContent v-else :content="message.content || '正在思考…'" />
-              <ul v-if="message.sources?.length" class="chat-sources"><li v-for="source in message.sources" :key="source.label"><strong>[{{ source.label }}]</strong> {{ source.filename }} · {{ source.heading || '未命名章节' }} · 第{{ source.page }}页</li></ul>
+              <ul v-if="message.sources?.length" class="chat-sources"><li v-for="source in message.sources" :key="source.label"><template v-if="source.type === 'web'"><strong>[{{ source.label }}]</strong> <a :href="source.url" target="_blank" rel="noopener noreferrer">{{ source.title }}</a> · {{ source.domain }}</template><template v-else><strong>[{{ source.label }}]</strong> {{ source.filename }} · {{ source.heading || '未命名章节' }} · 第{{ source.page }}页</template></li></ul>
               <button v-if="message.role === 'assistant' && message.status === 'failed' && !message.meeting_job_id" class="retry-button" @click="retryMessage(messageIndex)"><RefreshRight />重新生成</button>
               <section v-if="message.role === 'assistant' && message.meeting_job_id && jobs[message.meeting_job_id]" class="meeting-job-card">
                 <header><strong>{{ jobs[message.meeting_job_id]!.source_name }}</strong><span>{{ jobLabel(jobs[message.meeting_job_id]!.status) }}</span></header>
@@ -129,8 +144,7 @@ onBeforeUnmount(() => { if (pollTimer) window.clearInterval(pollTimer); controll
           </article>
         </div>
         <p v-if="stage" class="chat-stage">{{ stage }}</p>
-        <div class="unified-composer"><div v-if="meetingFile" class="attachment-chip"><UploadFilled /><span>{{ meetingFile.name }}</span><button type="button" aria-label="移除附件" @click="meetingFile = undefined"><Close /></button></div><div class="composer-row"><label v-if="role === 'secretary'" class="attachment-button" title="添加音频或视频"><UploadFilled /><span class="sr-only">添加音频或视频</span><input type="file" accept="audio/*,video/*,.mkv" @change="meetingFile = ($event.target as HTMLInputElement).files?.[0]" /></label><textarea v-model="question" rows="3" maxlength="2000" aria-label="输入问题或会议整理要求" :placeholder="role === 'secretary' ? '输入问题，或添加音视频并填写整理要求；Enter发送' : '输入问题，Enter发送，Shift+Enter换行'" @keydown.enter.exact.prevent="send()"></textarea><button v-if="loading && !meetingFile" class="send-button stop" aria-label="停止生成" @click="stop"><Close /></button><button v-else class="send-button" aria-label="发送" :disabled="!question.trim() && !meetingFile" @click="send()"><Promotion /></button></div></div>
-        <div v-if="!messages.length" class="empty-suggestions"><button v-for="item in examples" :key="item" @click="send(item)">{{ item }}</button></div>
+        <div class="unified-composer"><div v-if="meetingFile" class="attachment-chip"><UploadFilled /><span>{{ meetingFile.name }}</span><button type="button" aria-label="移除附件" @click="meetingFile = undefined"><Close /></button></div><textarea v-model="question" class="composer-input" rows="3" maxlength="2000" aria-label="输入问题或会议整理要求" :placeholder="role === 'secretary' ? '输入团务问题，Enter 发送，Shift+Enter 换行' : '输入问题，Enter 发送，Shift+Enter 换行'" @keydown.enter.exact.prevent="send()"></textarea><div class="composer-toolbar"><div class="composer-tools"><label v-if="role === 'secretary'" class="attachment-button" title="添加音频或视频"><Paperclip /><span class="sr-only">添加音频或视频</span><input type="file" accept="audio/*,video/*,.mkv" @change="meetingFile = ($event.target as HTMLInputElement).files?.[0]" /></label><button class="smart-search-toggle" type="button" :class="{ active: webSearchEnabled }" :aria-pressed="webSearchEnabled" @click="webSearchEnabled = !webSearchEnabled"><Connection />智能搜索<span v-if="webSearchEnabled" class="smart-search-check">✓</span></button></div><button v-if="loading && !meetingFile" class="send-button stop" aria-label="停止生成" @click="stop"><Close /></button><button v-else class="send-button" aria-label="发送" :disabled="!question.trim() && !meetingFile" @click="send()"><ArrowUp /></button></div></div>
         </div>
         <p class="chat-disclaimer">知识库依据不足时只提供通用建议，请以学校和学院正式文件为准。</p>
       </div>

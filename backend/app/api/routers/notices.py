@@ -6,11 +6,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.ai import DeepSeekClient, DeepSeekError, get_deepseek_client
-from app.auth import get_current_user, require_secretary
-from app.database import get_db
-from app.files import delete_notice_attachment, save_notice_attachment
-from app.models import Notice, NoticeRead, User
+from app.core.database import get_db
+from app.core.files import delete_notice_attachment, save_notice_attachment
+from app.core.security import get_current_user, require_secretary
+from app.llm.deepseek import DeepSeekClient, DeepSeekError, get_deepseek_client
+from app.models.entities import Notice, NoticeRead, User
 
 
 router = APIRouter(prefix="/api/notices", tags=["通知"])

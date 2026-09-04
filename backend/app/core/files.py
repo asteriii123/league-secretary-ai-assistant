@@ -3,7 +3,7 @@ from uuid import uuid4
 
 from fastapi import HTTPException, UploadFile
 
-from app.config import settings
+from app.core.config import settings
 
 
 MAX_NOTICE_FILE_SIZE = 20 * 1024 * 1024

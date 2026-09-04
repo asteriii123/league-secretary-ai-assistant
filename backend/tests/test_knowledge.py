@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from app.knowledge import Block, build_parent_chunks, build_small_chunks, PARENT_MAX, SMALL_MAX
+from app.rag.documents import Block, PARENT_MAX, SMALL_MAX, build_parent_chunks, build_small_chunks
 from app.main import app
 
 
@@ -67,7 +67,7 @@ def test_duplicate_upload_rejected() -> None:
 
 
 def test_failed_task_can_retry(monkeypatch) -> None:
-    from app import knowledge
+    from app.rag import documents as knowledge
 
     original = knowledge.extract_blocks
     monkeypatch.setattr(knowledge, "extract_blocks", lambda source, file_type: (_ for _ in ()).throw(knowledge.KnowledgeError("模拟解析失败")))

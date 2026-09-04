@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from app.auth import require_secretary
-from app.models import User
-from app.retrieval import RetrievalError, retrieve_with_rerank
+from app.core.security import require_secretary
+from app.models.entities import User
+from app.rag.retrieval import RetrievalError, retrieve_with_rerank
 
 
 router = APIRouter(prefix="/api/rag", tags=["RAG"])

@@ -2,7 +2,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from app.config import settings
+from app.core.config import settings
 
 
 class TranscriptionError(Exception):

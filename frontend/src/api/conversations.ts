@@ -1,6 +1,8 @@
 import { API_BASE_URL, http } from './http'
 
-export interface Source { label: string; filename: string; heading: string; page: number }
+export type Source =
+  | { type?: 'knowledge'; label: string; filename: string; heading: string; page: number }
+  | { type: 'web'; label: string; title: string; url: string; domain: string; provider: 'tavily' | 'baidu' }
 export interface Conversation { id: number; title: string; mode?: string; created_at: string; updated_at: string }
 export interface ChatMessage { id: number; role: 'user' | 'assistant'; content: string; status: string; sources: Source[]; meeting_job_id?: number; created_at: string }
 export interface MeetingMinutes { title: string; meeting_type: string; summary: string; key_points: string[]; decisions: string[]; action_items: { task: string; owner: string; deadline: string }[]; requires_manual_review: boolean; redacted_sensitive_data: boolean }
@@ -12,11 +14,11 @@ export async function renameConversation(id: number, title: string) { return (aw
 export async function deleteConversation(id: number) { await http.delete(`/api/ai/conversations/${id}`) }
 export async function fetchMessages(id: number) { return (await http.get<ChatMessage[]>(`/api/ai/conversations/${id}/messages`)).data }
 
-export async function streamQuestion(id: number, question: string, signal: AbortSignal) {
+export async function streamQuestion(id: number, question: string, webSearchEnabled: boolean, signal: AbortSignal) {
   return fetch(`${API_BASE_URL}/api/ai/conversations/${id}/messages/stream`, {
     method: 'POST', signal,
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') ?? ''}` },
-    body: JSON.stringify({ question }),
+    body: JSON.stringify({ question, web_search_enabled: webSearchEnabled }),
   })
 }
 

@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from app.ai import get_deepseek_client
+from app.llm.deepseek import get_deepseek_client
 from app.main import app
 
 

@@ -5,12 +5,12 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.auth import require_secretary
-from app.database import get_db
-from app.files import delete_knowledge_file, save_knowledge_file
-from app.knowledge import compute_file_hash, process_knowledge_document
-from app.models import KnowledgeChunk, KnowledgeDocument, User
-from app.retrieval import RetrievalError, hybrid_search, index_document_safe, delete_document_index, set_document_enabled
+from app.core.database import get_db
+from app.core.files import delete_knowledge_file, save_knowledge_file
+from app.core.security import require_secretary
+from app.models.entities import KnowledgeChunk, KnowledgeDocument, User
+from app.rag.documents import compute_file_hash, process_knowledge_document
+from app.rag.retrieval import RetrievalError, delete_document_index, hybrid_search, index_document_safe, set_document_enabled
 
 
 router = APIRouter(prefix="/api/knowledge", tags=["知识资料"])

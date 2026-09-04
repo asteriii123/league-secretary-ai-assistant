@@ -7,11 +7,11 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.auth import require_secretary
-from app.database import get_db
-from app.files import save_meeting_media
-from app.meeting_agent import run_meeting_graph
-from app.models import ChatConversation, ChatMessage, MeetingJob, User
+from app.agents.meeting import run_meeting_graph
+from app.core.database import get_db
+from app.core.files import save_meeting_media
+from app.core.security import require_secretary
+from app.models.entities import ChatConversation, ChatMessage, MeetingJob, User
 
 
 router = APIRouter(prefix="/api/ai/meeting-jobs", tags=["会议Agent"])

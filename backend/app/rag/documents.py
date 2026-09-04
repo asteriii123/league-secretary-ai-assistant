@@ -17,9 +17,9 @@ from pathlib import Path
 
 from sqlalchemy import select
 
-from app.config import settings
-from app.database import SessionLocal
-from app.models import KnowledgeChunk, KnowledgeDocument
+from app.core.config import settings
+from app.core.database import SessionLocal
+from app.models.entities import KnowledgeChunk, KnowledgeDocument
 
 
 class KnowledgeError(Exception):
@@ -374,7 +374,7 @@ def process_knowledge_document(document_id: int) -> None:
             document.index_error = None
             db.commit()
             if settings.rag_enabled:
-                from app.retrieval import RetrievalError, index_document
+                from app.rag.retrieval import RetrievalError, index_document
                 try:
                     index_document(document.id)
                 except RetrievalError:

@@ -6,13 +6,13 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.auth import require_secretary
-from app.database import get_db
-from app.files import delete_meeting_media, resolve_meeting_upload, save_meeting_media
-from app.models import MeetingRecord, User
-from app.meeting_agent import build_minutes_docx
-from app.config import settings
-from app.transcription import TranscriptionError, transcribe_media
+from app.agents.meeting import build_minutes_docx
+from app.core.config import settings
+from app.core.database import get_db
+from app.core.files import delete_meeting_media, resolve_meeting_upload, save_meeting_media
+from app.core.security import require_secretary
+from app.models.entities import MeetingRecord, User
+from app.services.transcription import TranscriptionError, transcribe_media
 
 
 router = APIRouter(prefix="/api/meetings", tags=["会议助手"])

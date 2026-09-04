@@ -5,16 +5,16 @@ from typing import Literal
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.ai import router as ai_router
-from app.init_db import initialize_database
-from app.routers.auth import router as auth_router
-from app.routers.notices import router as notices_router
-from app.routers.collections import router as collections_router
-from app.routers.meetings import router as meetings_router
-from app.routers.knowledge import router as knowledge_router
-from app.routers.rag import router as rag_router
-from app.routers.conversations import router as conversations_router
-from app.routers.meeting_agent import router as meeting_agent_router
+from app.api.routers.ai import router as ai_router
+from app.api.routers.auth import router as auth_router
+from app.api.routers.collections import router as collections_router
+from app.api.routers.conversations import router as conversations_router
+from app.api.routers.knowledge import router as knowledge_router
+from app.api.routers.meeting_agent import router as meeting_agent_router
+from app.api.routers.meetings import router as meetings_router
+from app.api.routers.notices import router as notices_router
+from app.api.routers.rag import router as rag_router
+from app.core.init_db import initialize_database
 
 
 @asynccontextmanager

@@ -22,7 +22,7 @@ watch(() => route.path, () => { mobileNavOpen.value = false; if (isFeaturePage.v
 </script>
 
 <template>
-  <div class="app-shell">
+  <div :class="['app-shell', { 'ai-shell': route.path === aiPath }]">
     <aside :class="['sidebar', { 'mobile-open': mobileNavOpen }]">
       <div class="brand"><span class="brand-mark"><MagicStick /></span><span><strong>团支书 AI 助手</strong></span><button class="sidebar-menu-button" type="button" :aria-expanded="mobileNavOpen" aria-label="打开或关闭导航" @click="mobileNavOpen = !mobileNavOpen"><Menu /></button></div>
       <nav class="side-nav" aria-label="主导航">

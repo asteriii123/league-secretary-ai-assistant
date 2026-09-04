@@ -2,6 +2,7 @@ import asyncio
 import json
 from datetime import datetime
 from typing import Any
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -10,12 +11,15 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
-from app.ai import DeepSeekClient, DeepSeekError, get_deepseek_client, rag_system_prompt, sse
-from app.auth import get_current_user
-from app.config import settings
-from app.database import SessionLocal, get_db
-from app.models import ChatConversation, ChatMessage, MeetingJob, User
-from app.retrieval import RetrievalError, retrieve_with_rerank
+from app.api.routers.ai import sse
+from app.core.config import settings
+from app.core.database import SessionLocal, get_db
+from app.core.security import get_current_user
+from app.llm.deepseek import DeepSeekClient, DeepSeekError, get_deepseek_client
+from app.llm.prompts import rag_system_prompt
+from app.models.entities import ChatConversation, ChatMessage, MeetingJob, User
+from app.rag.retrieval import RetrievalError, retrieve_with_rerank
+from app.search.service import search_web, web_sources_prompt
 
 
 router = APIRouter(prefix="/api/ai/conversations", tags=["AI对话"])
@@ -27,6 +31,7 @@ class ConversationUpdate(BaseModel):
 
 class QuestionPayload(BaseModel):
     question: str = Field(min_length=2, max_length=2000)
+    web_search_enabled: bool = False
 
 
 CASUAL_MESSAGES = {
@@ -130,6 +135,7 @@ async def send_message(
 
     async def generate():
         parents: list[dict] = []
+        web_results: list[dict] = []
         sources: list[dict] = []
         answer = ""
         try:
@@ -156,13 +162,26 @@ async def send_message(
                         item["source_label"] = f"资料{index}"
                 except RetrievalError as exc:
                     yield sse("status", {"stage": "retrieval_warning", "message": f"知识库暂不可用：{exc}"})
+            web_context = ""
+            if payload.web_search_enabled and not is_casual_message(question):
+                yield sse("status", {"stage": "web_searching", "message": "正在智能搜索互联网"})
+                response = await search_web(retrieval_query(question, history_rows))
+                web_results = response.results
+                web_context = web_sources_prompt(web_results)
+                if response.warnings and not web_results:
+                    yield sse("status", {"stage": "web_search_warning", "message": "智能搜索暂不可用，将继续生成回答"})
             sources = [
-                {"label": item["source_label"], "filename": item["filename"], "heading": item["section_path"] or item["heading"], "page": item["page"]}
+                {"type": "knowledge", "label": item["source_label"], "filename": item["filename"], "heading": item["section_path"] or item["heading"], "page": item["page"]}
                 for item in parents
             ]
+            sources.extend([
+                {"type": "web", "label": item["source_label"], "title": item["title"], "url": item["url"],
+                 "domain": urlsplit(item["url"]).netloc, "provider": item["provider"]}
+                for item in web_results
+            ])
             if sources:
                 yield sse("sources", {"items": sources})
-            messages = [{"role": "system", "content": rag_system_prompt(user.role, parents)}, *history, {"role": "user", "content": question}]
+            messages = [{"role": "system", "content": rag_system_prompt(user.role, parents) + web_context}, *history, {"role": "user", "content": question}]
             yield sse("message", {"user_message_id": user_message.id, "assistant_message_id": assistant_id})
             yield sse("status", {"stage": "generating", "message": "DeepSeek正在生成回答"})
             async for content in client.stream(messages):

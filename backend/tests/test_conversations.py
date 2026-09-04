@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from app.ai import get_deepseek_client
+from app.llm.deepseek import get_deepseek_client
 from app.main import app
 
 
@@ -24,7 +24,7 @@ def headers(token: str) -> dict[str, str]:
 
 def test_conversation_history_is_private_and_persistent(monkeypatch) -> None:
     fake = FakeStreamingClient(); fake.calls = []
-    monkeypatch.setattr("app.routers.conversations.retrieve_with_rerank", lambda *_: {"parents": []})
+    monkeypatch.setattr("app.api.routers.conversations.retrieve_with_rerank", lambda *_: {"parents": []})
     app.dependency_overrides[get_deepseek_client] = lambda: fake
     try:
         with TestClient(app) as client:
@@ -56,7 +56,7 @@ def test_casual_message_skips_rag_and_has_no_sources(monkeypatch) -> None:
     fake = FakeStreamingClient(); fake.calls = []
     def unexpected_retrieval(*_):
         raise AssertionError("寒暄消息不应调用RAG")
-    monkeypatch.setattr("app.routers.conversations.retrieve_with_rerank", unexpected_retrieval)
+    monkeypatch.setattr("app.api.routers.conversations.retrieve_with_rerank", unexpected_retrieval)
     app.dependency_overrides[get_deepseek_client] = lambda: fake
     try:
         with TestClient(app) as client:
@@ -78,7 +78,7 @@ def test_only_relevant_rag_results_are_cited(monkeypatch) -> None:
         "source_label": "资料1", "filename": "团务手册.pdf", "section_path": "团费",
         "heading": "团费", "page": 2, "content": "团费缴纳说明", "rerank_score": 0.1,
     }]}
-    monkeypatch.setattr("app.routers.conversations.retrieve_with_rerank", lambda *_: result)
+    monkeypatch.setattr("app.api.routers.conversations.retrieve_with_rerank", lambda *_: result)
     app.dependency_overrides[get_deepseek_client] = lambda: fake
     try:
         with TestClient(app) as client:
@@ -96,5 +96,34 @@ def test_only_relevant_rag_results_are_cited(monkeypatch) -> None:
             )
             assert "event: sources" in relevant.text
             assert "团务手册.pdf" in relevant.text
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_smart_search_adds_web_sources(monkeypatch) -> None:
+    from app.search.service import WebSearchResponse
+
+    fake = FakeStreamingClient(); fake.calls = []
+
+    async def fake_search(_query: str) -> WebSearchResponse:
+        return WebSearchResponse(results=[{
+            "title": "共青团中央通知", "url": "https://www.gqt.org.cn/test", "snippet": "通知内容",
+            "published_at": None, "provider": "tavily", "score": .9,
+        }], warnings=[])
+
+    monkeypatch.setattr("app.api.routers.conversations.retrieve_with_rerank", lambda *_: {"parents": []})
+    monkeypatch.setattr("app.api.routers.conversations.search_web", fake_search)
+    app.dependency_overrides[get_deepseek_client] = lambda: fake
+    try:
+        with TestClient(app) as client:
+            token = login(client, "secretary1")
+            conversation = client.post("/api/ai/conversations", headers=headers(token)).json()
+            response = client.post(
+                f"/api/ai/conversations/{conversation['id']}/messages/stream",
+                headers=headers(token), json={"question": "查询最新团务通知", "web_search_enabled": True},
+            )
+            assert '"type": "web"' in response.text
+            assert "共青团中央通知" in response.text
+            assert "[网页1]" in fake.calls[-1][0]["content"]
     finally:
         app.dependency_overrides.clear()

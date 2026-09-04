@@ -16,9 +16,9 @@ from pathlib import Path
 from statistics import mean
 from typing import Any
 
-from app.ai import DeepSeekClient
-from app.config import settings
-from app.retrieval import hybrid_search, rerank_search, resolve_parent_chunks, vector_search
+from app.core.config import settings
+from app.llm.deepseek import DeepSeekClient
+from app.rag.retrieval import hybrid_search, rerank_search, resolve_parent_chunks, vector_search
 
 
 BASE_DIR = Path(__file__).resolve().parent

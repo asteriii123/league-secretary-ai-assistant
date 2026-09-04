@@ -11,11 +11,12 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command, interrupt
 from pydantic import ValidationError
 
-from app.ai import DeepSeekClient, MeetingSummaryResponse, redact_sensitive_text
-from app.config import settings
-from app.database import SessionLocal
-from app.models import ChatMessage, MeetingJob, MeetingRecord
-from app.transcription import transcribe_media
+from app.api.routers.ai import MeetingSummaryResponse, redact_sensitive_text
+from app.core.config import settings
+from app.core.database import SessionLocal
+from app.llm.deepseek import DeepSeekClient
+from app.models.entities import ChatMessage, MeetingJob, MeetingRecord
+from app.services.transcription import transcribe_media
 
 
 class MeetingAgentState(TypedDict, total=False):

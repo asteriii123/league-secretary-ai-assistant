@@ -43,7 +43,7 @@ def test_meeting_record_persistence_permissions_and_delete() -> None:
 
 
 def test_audio_transcription_upload_and_save(monkeypatch) -> None:
-    monkeypatch.setattr("app.routers.meetings.transcribe_media", lambda source: "这是本地语音识别得到的会议文字稿，内容可以由团支书继续修改。")
+    monkeypatch.setattr("app.api.routers.meetings.transcribe_media", lambda source: "这是本地语音识别得到的会议文字稿，内容可以由团支书继续修改。")
     with TestClient(app) as client:
         secretary = login(client, "secretary1")
         response = client.post("/api/meetings/transcribe", headers=auth(secretary), files={"file": ("meeting.mp3", b"fake-audio", "audio/mpeg")})

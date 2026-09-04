@@ -10,10 +10,10 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.auth import get_current_user, require_secretary
-from app.database import get_db
-from app.files import delete_submission_attachment, save_submission_attachment
-from app.models import CollectionSubmission, CollectionTask, User
+from app.core.database import get_db
+from app.core.files import delete_submission_attachment, save_submission_attachment
+from app.core.security import get_current_user, require_secretary
+from app.models.entities import CollectionSubmission, CollectionTask, User
 
 
 router = APIRouter(prefix="/api/collections", tags=["信息收集"])

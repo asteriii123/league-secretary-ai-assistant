@@ -1,8 +1,8 @@
 from sqlalchemy import inspect, select, text
 
-from app.auth import hash_password
-from app.database import Base, SessionLocal, engine
-from app.models import ClassRoom, MeetingJob, User
+from app.core.database import Base, SessionLocal, engine
+from app.core.security import hash_password
+from app.models.entities import ClassRoom, MeetingJob, User
 
 
 DEMO_CLASSES = [

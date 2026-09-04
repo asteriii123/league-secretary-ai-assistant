@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from app.ai import get_deepseek_client
+from app.llm.deepseek import get_deepseek_client
 from app.main import app
 
 
@@ -42,7 +42,7 @@ def test_chat_stream_returns_sse_content() -> None:
 
 def test_chat_stream_returns_sources_and_uses_parent_context(monkeypatch) -> None:
     fake_client = FakeStreamingClient()
-    monkeypatch.setattr("app.ai.retrieve_with_rerank", lambda query, class_id: {
+    monkeypatch.setattr("app.api.routers.ai.retrieve_with_rerank", lambda query, class_id: {
         "parents": [{
             "source_label": "资料1", "filename": "团务手册.pdf", "heading": "团费",
             "section_path": "第二章/团费", "page": 5, "content": "团费应按通知要求缴纳。",

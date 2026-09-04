@@ -2,7 +2,8 @@ import json
 
 from fastapi.testclient import TestClient
 
-from app.ai import get_deepseek_client, redact_sensitive_text
+from app.api.routers.ai import redact_sensitive_text
+from app.llm.deepseek import get_deepseek_client
 from app.main import app
 
 

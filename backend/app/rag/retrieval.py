@@ -11,9 +11,9 @@ import jieba
 from rank_bm25 import BM25Okapi
 from sqlalchemy import select
 
-from app.config import settings
-from app.database import SessionLocal
-from app.models import KnowledgeChunk, KnowledgeDocument
+from app.core.config import settings
+from app.core.database import SessionLocal
+from app.models.entities import KnowledgeChunk, KnowledgeDocument
 
 
 class RetrievalError(Exception):

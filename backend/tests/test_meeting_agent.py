@@ -11,7 +11,7 @@ def login(client: TestClient, username: str = "secretary1") -> dict[str, str]:
 
 
 def test_meeting_agent_pauses_for_two_reviews_and_builds_docx(monkeypatch) -> None:
-    monkeypatch.setattr("app.meeting_agent.transcribe_media", lambda _: "这是会议的本地转写稿，内容足够长，需要先由团支书人工确认。")
+    monkeypatch.setattr("app.agents.meeting.transcribe_media", lambda _: "这是会议的本地转写稿，内容足够长，需要先由团支书人工确认。")
     responses = iter([
         "这是脱敏并去除口头语后的会议文字稿。",
         json.dumps({"title": "测试会议", "summary": "会议摘要", "key_points": ["主要内容"], "decisions": ["会议决定"], "action_items": [{"task": "完成材料", "owner": "团支书", "deadline": "周五"}]}, ensure_ascii=False),
@@ -20,7 +20,7 @@ def test_meeting_agent_pauses_for_two_reviews_and_builds_docx(monkeypatch) -> No
     async def fake_complete(self, messages, *, json_output=False):
         return next(responses)
 
-    monkeypatch.setattr("app.meeting_agent.DeepSeekClient.complete", fake_complete)
+    monkeypatch.setattr("app.agents.meeting.DeepSeekClient.complete", fake_complete)
     with TestClient(app) as client:
         auth = login(client)
         conversation = client.post("/api/ai/conversations", headers=auth).json()

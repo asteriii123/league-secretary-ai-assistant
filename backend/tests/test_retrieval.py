@@ -2,9 +2,9 @@ from uuid import uuid4
 
 from sqlalchemy import select
 
-from app.database import SessionLocal
-from app.models import ClassRoom, KnowledgeChunk, KnowledgeDocument, User
-from app.retrieval import (
+from app.core.database import SessionLocal
+from app.models.entities import ClassRoom, KnowledgeChunk, KnowledgeDocument, User
+from app.rag.retrieval import (
     bm25_search,
     index_document,
     rerank_search,
